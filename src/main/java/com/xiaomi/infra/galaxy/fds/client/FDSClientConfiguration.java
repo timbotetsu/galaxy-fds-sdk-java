@@ -1,6 +1,6 @@
 package com.xiaomi.infra.galaxy.fds.client;
 
-import com.google.common.base.Preconditions;
+import java.util.Objects;
 
 /**
  * Created by zhangjunbin on 12/23/14.
@@ -32,7 +32,6 @@ public class FDSClientConfiguration {
    */
   private static final int DEFAULT_MAX_CONNECTIONS = 20;
 
-
   /**
    * max batch deletion size, used in batch delete
    */
@@ -53,7 +52,6 @@ public class FDSClientConfiguration {
    */
   public static final int DEFAULT_MAX_PART_SIZE = Integer.MAX_VALUE; //10M;
 
-
   /**
    * interval between service unavailable retry
    */
@@ -68,24 +66,24 @@ public class FDSClientConfiguration {
   /**
    * keepalive timeout
    */
-  public static final int DEFAULT_HTTP_KEEP_ALIVE_TIME_MILLISEC= 30 * 1000;
+  public static final int DEFAULT_HTTP_KEEP_ALIVE_TIME_MILLISEC = 30 * 1000;
 
   /**
    * download bandwidth for getObject
    */
-  public  static final int DEFAULT_DOWNLOAD_BANDWIDTH = 10 * 1024 * 1024;
+  public static final int DEFAULT_DOWNLOAD_BANDWIDTH = 10 * 1024 * 1024;
 
   /**
-   *  upload bandwidth for putObject
+   * upload bandwidth for putObject
    */
-  public  static final int DEFAULT_UPLOAD_BANDWIDTH = 10 * 1024 * 1024;
+  public static final int DEFAULT_UPLOAD_BANDWIDTH = 10 * 1024 * 1024;
 
   private String regionName;
-  
+
   private String endpoint;
   private String cdnEndpoint;
   private boolean enableHttps;
-  
+
   private boolean enableCdnForUpload;
   private boolean enableCdnForDownload;
   private boolean enableMd5Calculate;
@@ -134,12 +132,12 @@ public class FDSClientConfiguration {
   public FDSClientConfiguration(String endpoint) {
     this(endpoint, true);
   }
-  
+
   public FDSClientConfiguration(String endpoint, boolean enableHttps) {
     setEndpoint(endpoint);
     init(enableHttps);
   }
-  
+
   private void init(boolean enableHttps) {
     this.enableHttps = enableHttps;
     enableCdnForUpload = false;
@@ -152,13 +150,13 @@ public class FDSClientConfiguration {
     enableMetrics = false;
     enableApacheConnector = false;
   }
-  
+
   protected static String getCdnEndpoint(String regionName) {
     StringBuilder sb = new StringBuilder();
     sb.append(URI_CDN).append(".").append(regionName).append(URI_CDN_SUFFIX);
     return sb.toString();
   }
-  
+
   protected void parseEndpoint(String endpoint) {
     String host = endpoint.split(":")[0];
     String uriSuffix;
@@ -173,20 +171,20 @@ public class FDSClientConfiguration {
   }
 
   public void setEndpoint(String endpoint) {
-    Preconditions.checkNotNull(endpoint);
+    Objects.requireNonNull(endpoint);
     this.endpoint = endpoint;
     parseEndpoint(this.endpoint);
     this.cdnEndpoint = getCdnEndpoint(regionName);
   }
-  
+
   public String getEndpoint() {
     return endpoint;
   }
-  
+
   public String getCdnEndpoint() {
     return cdnEndpoint;
   }
-  
+
   public String getRegionName() {
     return this.regionName;
   }
@@ -198,14 +196,15 @@ public class FDSClientConfiguration {
   public void enableHttps(boolean enableHttps) {
     this.enableHttps = enableHttps;
   }
-  
+
   public boolean isCdnEnabledForUpload() {
     return enableCdnForUpload;
   }
 
   /**
-   * Whether upload object using through cdn. This is a client option, 
+   * Whether upload object using through cdn. This is a client option,
    * different clients could set different values for this option.
+   *
    * @param enableCdnForUpload
    */
   public void enableCdnForUpload(boolean enableCdnForUpload) {
@@ -213,11 +212,13 @@ public class FDSClientConfiguration {
   }
 
   public boolean isCdnEnabledForDownload() {
-    return enableCdnForDownload; }
+    return enableCdnForDownload;
+  }
 
   /**
-   * Whether upload object using through cdn. This is a client option, 
+   * Whether upload object using through cdn. This is a client option,
    * different clients could set different values for this option.
+   *
    * @param enableCdnForDownload
    */
   public void enableCdnForDownload(boolean enableCdnForDownload) {
@@ -308,8 +309,8 @@ public class FDSClientConfiguration {
    * means infinity, and is not recommended.
    *
    * @param connectionTimeoutMs The amount of time to wait (in milliseconds) when
-   *                          initially establishing a connection before giving
-   *                          up and timing out.
+   *                            initially establishing a connection before giving
+   *                            up and timing out.
    */
   public void setConnectionTimeoutMs(int connectionTimeoutMs) {
     this.connectionTimeoutMs = connectionTimeoutMs;
@@ -350,8 +351,8 @@ public class FDSClientConfiguration {
    * times out and is closed. A value of 0 means infinity, and isn't recommended.
    *
    * @param socketTimeoutMs The amount of time to wait (in milliseconds) for data
-   *                      to be transfered over an established, open connection
-   *                      before the connection is times out and is closed.
+   *                        to be transfered over an established, open connection
+   *                        before the connection is times out and is closed.
    */
   public void setSocketTimeoutMs(int socketTimeoutMs) {
     this.socketTimeoutMs = socketTimeoutMs;
@@ -385,46 +386,58 @@ public class FDSClientConfiguration {
    * Set items deleted each round in deleteObjects, if more than
    * $size object left, deleteObjects will delete them in several
    * rounds internally.
+   *
    * @param size positive and greater than DEFAULT_MAX_BATCH_DELETE_SIZE,
    */
   public void setMaxBatchDeleteSize(int size) {
-    Preconditions.checkArgument(size > 0, "size should be positive, got" + size);
-    Preconditions.checkArgument(size <= DEFAULT_MAX_BATCH_DELETE_SIZE,
-        "size should <= " + DEFAULT_MAX_BATCH_DELETE_SIZE + " got " + size);
+    if (size < 0) {
+      throw new IllegalArgumentException("size should be positive, got " + size);
+    }
+    if (size > DEFAULT_MAX_BATCH_DELETE_SIZE) {
+      throw new IllegalArgumentException("size should <= " + DEFAULT_MAX_BATCH_DELETE_SIZE + " got " + size);
+    }
     this.batchDeleteSize = size;
   }
 
-  public void setPartSize(int partSize){
-    Preconditions.checkArgument(partSize > 0, "partSize should be positive, got" + partSize);
-    Preconditions.checkArgument(partSize <= DEFAULT_MAX_PART_SIZE,
-        "partSize should <= " + DEFAULT_MAX_PART_SIZE + "got " + partSize);
+  public void setPartSize(int partSize) {
+    if (partSize < 0) {
+      throw new IllegalArgumentException("partSize should be positive, got " + partSize);
+    }
+    if (partSize > DEFAULT_MAX_PART_SIZE) {
+      throw new IllegalArgumentException("partSize should <= " + DEFAULT_MAX_PART_SIZE + " got " + partSize);
+    }
     this.partSize = partSize;
   }
 
-  public int getPartSize(){
+  public int getPartSize() {
     return partSize;
   }
 
-  public void setDownloadBandwidth(long downloadBandwidth){
-    Preconditions.checkArgument(downloadBandwidth > 0, "downloadBandwidth should be positive, got" + downloadBandwidth);
+  public void setDownloadBandwidth(long downloadBandwidth) {
+    if (downloadBandwidth < 0) {
+      throw new IllegalArgumentException("downloadBandwidth should be positive, got" + downloadBandwidth);
+    }
     this.downloadBandwidth = downloadBandwidth;
   }
 
-  public long getDownloadBandwidth(){
+  public long getDownloadBandwidth() {
     return downloadBandwidth;
   }
 
-  public void setUploadBandwidth(long uploadBandwidth){
-    Preconditions.checkArgument(uploadBandwidth > 0, "uploadBandwidth should be positive, got" + uploadBandwidth);
+  public void setUploadBandwidth(long uploadBandwidth) {
+    if (uploadBandwidth < 0) {
+      throw new IllegalArgumentException("uploadBandwidth should be positive, got" + uploadBandwidth);
+    }
     this.uploadBandwidth = uploadBandwidth;
   }
 
-  public long getUploadBandwidth(){
+  public long getUploadBandwidth() {
     return uploadBandwidth;
   }
 
   /**
    * get items deleted each round in deleteObjects
+   *
    * @return
    */
   public int getMaxBatchDeleteSize() {

@@ -1,19 +1,15 @@
 package com.xiaomi.infra.galaxy.fds.client.network;
 
-import com.google.common.base.Strings;
-import com.google.common.collect.LinkedListMultimap;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonDeserializer;
 import com.xiaomi.infra.galaxy.fds.Action;
 import com.xiaomi.infra.galaxy.fds.Common;
 import com.xiaomi.infra.galaxy.fds.auth.signature.SignAlgorithm;
-import com.xiaomi.infra.galaxy.fds.auth.signature.Signer;
 import com.xiaomi.infra.galaxy.fds.auth.signature.XiaomiHeader;
 import com.xiaomi.infra.galaxy.fds.client.FDSClientConfiguration;
 import com.xiaomi.infra.galaxy.fds.client.GalaxyFDSClient;
 import com.xiaomi.infra.galaxy.fds.client.auth.Authentication;
-import com.xiaomi.infra.galaxy.fds.client.auth.KerberosAuthentication;
 import com.xiaomi.infra.galaxy.fds.client.auth.SignerAuthentication;
 import com.xiaomi.infra.galaxy.fds.client.credential.GalaxyFDSCredential;
 import com.xiaomi.infra.galaxy.fds.client.exception.GalaxyFDSClientException;
@@ -23,6 +19,28 @@ import com.xiaomi.infra.galaxy.fds.client.filter.MetricsResponseFilter;
 import com.xiaomi.infra.galaxy.fds.client.metrics.MetricsCollector;
 import com.xiaomi.infra.galaxy.fds.model.FDSObjectMetadata;
 import com.xiaomi.infra.galaxy.fds.model.HttpMethod;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.Reader;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.nio.charset.Charset;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Random;
+import java.util.TimeZone;
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
+import javax.net.ssl.SSLContext;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.http.Header;
@@ -60,31 +78,6 @@ import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.apache.http.impl.conn.SystemDefaultDnsResolver;
 import org.apache.http.ssl.SSLContexts;
 
-import javax.net.ssl.SSLContext;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.Reader;
-import java.net.MalformedURLException;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.net.URL;
-import java.nio.charset.Charset;
-import java.security.InvalidKeyException;
-import java.security.NoSuchAlgorithmException;
-import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Random;
-import java.util.TimeZone;
-import java.util.UUID;
-import java.util.concurrent.TimeUnit;
-
 /**
  * Copyright 2015, Xiaomi.
  * All rights reserved.
@@ -111,25 +104,19 @@ public class FDSHttpClient {
   private final String KERBEROS_AUTHORIZATION_PATH = "/fds-kerberos-auth";
 
   public static SignAlgorithm SIGN_ALGORITHM = SignAlgorithm.HmacSHA1;
-  private static final ThreadLocal<SimpleDateFormat> DATE_FORMAT =
-    new ThreadLocal<SimpleDateFormat>() {
-      @Override
-      protected SimpleDateFormat initialValue() {
-        SimpleDateFormat format = new SimpleDateFormat(
-          "EEE, dd MMM yyyy HH:mm:ss z", Locale.US);
-        format.setTimeZone(TimeZone.getTimeZone("GMT"));
-        return format;
-      }
-    };
+  private static final ThreadLocal<SimpleDateFormat> DATE_FORMAT = new ThreadLocal<SimpleDateFormat>() {
+    @Override protected SimpleDateFormat initialValue() {
+      SimpleDateFormat format = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss z", Locale.US);
+      format.setTimeZone(TimeZone.getTimeZone("GMT"));
+      return format;
+    }
+  };
 
-
-  public FDSHttpClient(FDSClientConfiguration fdsConfig, GalaxyFDSCredential credential,
-      GalaxyFDSClient fdsClient) {
+  public FDSHttpClient(FDSClientConfiguration fdsConfig, GalaxyFDSCredential credential, GalaxyFDSClient fdsClient) {
     this(fdsConfig, credential, fdsClient, null);
   }
 
-  public FDSHttpClient(FDSClientConfiguration fdsConfig, GalaxyFDSCredential credential,
-      GalaxyFDSClient fdsClient, DnsResolver dnsResolver) {
+  public FDSHttpClient(FDSClientConfiguration fdsConfig, GalaxyFDSCredential credential, GalaxyFDSClient fdsClient, DnsResolver dnsResolver) {
     this.fdsConfig = fdsConfig;
     this.credential = credential;
     this.dnsResolver = dnsResolver;
@@ -143,17 +130,9 @@ public class FDSHttpClient {
       metricsCollector = new MetricsCollector(fdsClient);
     }
 
-    switch (credential.getAuthType()){
+    switch (credential.getAuthType()) {
       case SIGNER:
         authentication = new SignerAuthentication(credential);
-        break;
-      case KERBEROS:
-        try {
-          authentication = new KerberosAuthentication(credential,
-            new URL(fdsConfig.getBaseUri() + KERBEROS_AUTHORIZATION_PATH));
-        } catch (MalformedURLException e){
-          throw new RuntimeException("fail to init kerberos authorization", e);
-        }
         break;
       default:
         throw new RuntimeException("Invalid auth type");
@@ -161,9 +140,8 @@ public class FDSHttpClient {
   }
 
   private HttpClient createHttpClient(FDSClientConfiguration config) {
-    RequestConfig.Builder requestConfigBuilder = RequestConfig.custom()
-        .setConnectTimeout(config.getConnectionTimeoutMs())
-        .setSocketTimeout(config.getSocketTimeoutMs());
+    RequestConfig.Builder requestConfigBuilder =
+      RequestConfig.custom().setConnectTimeout(config.getConnectionTimeoutMs()).setSocketTimeout(config.getSocketTimeoutMs());
 
     String proxyHost = config.getProxyHost();
 
@@ -180,8 +158,7 @@ public class FDSHttpClient {
       if (proxyUsername != null && proxyPassword != null) {
         credentialsProvider = new BasicCredentialsProvider();
 
-        credentialsProvider.setCredentials(new AuthScope(proxyHost, proxyPort),
-            new NTCredentials(proxyUsername, proxyPassword, proxyWorkstation, proxyDomain));
+        credentialsProvider.setCredentials(new AuthScope(proxyHost, proxyPort), new NTCredentials(proxyUsername, proxyPassword, proxyWorkstation, proxyDomain));
 
         authCache = new BasicAuthCache();
         authCache.put(proxy, new BasicScheme());
@@ -190,55 +167,33 @@ public class FDSHttpClient {
 
     RequestConfig requestConfig = requestConfigBuilder.build();
 
-    SocketConfig socketConfig = SocketConfig.custom()
-        .setSoTimeout(config.getSocketTimeoutMs())
-        .build();
+    SocketConfig socketConfig = SocketConfig.custom().setSoTimeout(config.getSocketTimeoutMs()).build();
 
     RegistryBuilder<ConnectionSocketFactory> registryBuilder = RegistryBuilder.create();
-    registryBuilder.register("http", new ConnectionInfoRecorderSocketFactory(
-        new PlainConnectionSocketFactory()));
+    registryBuilder.register("http", new ConnectionInfoRecorderSocketFactory(new PlainConnectionSocketFactory()));
 
     if (config.isHttpsEnabled()) {
       SSLContext sslContext = SSLContexts.createSystemDefault();
-      SSLConnectionSocketFactory sslConnectionSocketFactory =
-          new SSLConnectionInfoRecorderSocketFactory(
-          sslContext,
-          NoopHostnameVerifier.INSTANCE);
+      SSLConnectionSocketFactory sslConnectionSocketFactory = new SSLConnectionInfoRecorderSocketFactory(sslContext, NoopHostnameVerifier.INSTANCE);
       registryBuilder.register("https", sslConnectionSocketFactory);
     }
     ipBlackList = new TimeBasedIpAddressBlackList(config.getIpAddressNegativeDurationMillsec());
-    connectionManager = new PoolingHttpClientConnectionManager(registryBuilder.build(),
-        null,
-        null,
-        new RoundRobinDNSResolver(new InternalSiteBlackListDNSResolver(ipBlackList,
-            this.dnsResolver == null ?
-                SystemDefaultDnsResolver.INSTANCE : this.dnsResolver)),
-        config.getHTTPKeepAliveTimeoutMS(), TimeUnit.MILLISECONDS);
+    connectionManager = new PoolingHttpClientConnectionManager(registryBuilder.build(), null, null, new RoundRobinDNSResolver(
+      new InternalSiteBlackListDNSResolver(ipBlackList, this.dnsResolver == null ? SystemDefaultDnsResolver.INSTANCE : this.dnsResolver)),
+      config.getHTTPKeepAliveTimeoutMS(), TimeUnit.MILLISECONDS);
     connectionManager.setDefaultMaxPerRoute(config.getMaxConnection());
     connectionManager.setMaxTotal(config.getMaxConnection());
     connectionManager.setDefaultSocketConfig(socketConfig);
-    FDSBlackListEnabledHostChecker fdsBlackListEnabledHostChecker =
-        new FDSBlackListEnabledHostChecker();
-    retryHandler = new InternalIpBlackListRetryHandler(config.getRetryCount(),
-        ipBlackList, fdsBlackListEnabledHostChecker);
+    FDSBlackListEnabledHostChecker fdsBlackListEnabledHostChecker = new FDSBlackListEnabledHostChecker();
+    retryHandler = new InternalIpBlackListRetryHandler(config.getRetryCount(), ipBlackList, fdsBlackListEnabledHostChecker);
 
-    return HttpClients.custom()
-        .setRetryHandler(retryHandler)
-        .setServiceUnavailableRetryStrategy(new ServiceUnavailableDNSBlackListStrategy(
-            config.getRetryCount(),
-            config.getRetryIntervalMilliSec(),
-            ipBlackList,
-            fdsBlackListEnabledHostChecker))
-        .setConnectionManager(connectionManager)
-        .setDefaultRequestConfig(requestConfig)
-        .disableContentCompression()
-        .build();
+    return HttpClients.custom().setRetryHandler(retryHandler).setServiceUnavailableRetryStrategy(
+        new ServiceUnavailableDNSBlackListStrategy(config.getRetryCount(), config.getRetryIntervalMilliSec(), ipBlackList, fdsBlackListEnabledHostChecker))
+      .setConnectionManager(connectionManager).setDefaultRequestConfig(requestConfig).disableContentCompression().build();
   }
 
-  public HttpUriRequest prepareRequestMethod(URI uri,
-      HttpMethod method, ContentType contentType, FDSObjectMetadata metadata,
-      HashMap<String, String> params, Map<String, List<Object>> headers,
-      HttpEntity requestEntity) throws GalaxyFDSClientException {
+  public HttpUriRequest prepareRequestMethod(URI uri, HttpMethod method, ContentType contentType, FDSObjectMetadata metadata, HashMap<String, String> params,
+    Map<String, List<Object>> headers, HttpEntity requestEntity) throws GalaxyFDSClientException {
     if (params != null) {
       URIBuilder builder = new URIBuilder(uri);
       for (Map.Entry<String, String> param : params.entrySet()) {
@@ -251,8 +206,9 @@ public class FDSHttpClient {
       }
     }
 
-    if (headers == null)
+    if (headers == null) {
       headers = new HashMap<String, List<Object>>();
+    }
     Map<String, Object> h = prepareRequestHeader(uri, method, contentType, metadata);
     for (Map.Entry<String, Object> hIte : h.entrySet()) {
       String key = hIte.getKey();
@@ -266,8 +222,9 @@ public class FDSHttpClient {
     switch (method) {
       case PUT:
         HttpPut httpPut = new HttpPut(uri);
-        if (requestEntity != null)
+        if (requestEntity != null) {
           httpPut.setEntity(requestEntity);
+        }
         httpRequest = httpPut;
         break;
       case GET:
@@ -281,22 +238,24 @@ public class FDSHttpClient {
         break;
       case POST:
         HttpPost httpPost = new HttpPost(uri);
-        if (requestEntity != null)
+        if (requestEntity != null) {
           httpPost.setEntity(requestEntity);
+        }
         httpRequest = httpPost;
         break;
       default:
-        throw new GalaxyFDSClientException("Method " + method.name() +
-          " not supported");
+        throw new GalaxyFDSClientException("Method " + method.name() + " not supported");
     }
     for (Map.Entry<String, List<Object>> header : headers.entrySet()) {
       String key = header.getKey();
-      if (key == null || key.isEmpty())
+      if (key == null || key.isEmpty()) {
         continue;
+      }
 
       for (Object obj : header.getValue()) {
-        if (obj == null)
+        if (obj == null) {
           continue;
+        }
         httpRequest.addHeader(header.getKey(), obj.toString());
       }
     }
@@ -305,32 +264,35 @@ public class FDSHttpClient {
     return httpRequest;
   }
 
-  public Map<String, Object> prepareRequestHeader(URI uri,
-      HttpMethod method, ContentType contentType, FDSObjectMetadata metadata)
-      throws GalaxyFDSClientException {
-    LinkedListMultimap<String, String> headers = LinkedListMultimap.create();
+  public Map<String, Object> prepareRequestHeader(URI uri, HttpMethod method, ContentType contentType, FDSObjectMetadata metadata)
+    throws GalaxyFDSClientException {
+
+    Map<String, List<String>> headers = new LinkedHashMap<>();
 
     if (metadata != null) {
       for (Map.Entry<String, String> e : metadata.getRawMetadata().entrySet()) {
-        headers.put(e.getKey(), e.getValue());
+        headers.computeIfAbsent(e.getKey(), k -> new ArrayList<>()).add(e.getValue());
       }
     }
 
     // Format date
     String date = DATE_FORMAT.get().format(new Date());
-    headers.put(Common.DATE, date);
+    headers.computeIfAbsent(Common.DATE, k -> new ArrayList<>()).add(date);
 
     // Set content type
-    if (contentType != null)
-      headers.put(Common.CONTENT_TYPE, contentType.toString());
+    if (contentType != null) {
+      headers.computeIfAbsent(Common.CONTENT_TYPE, k -> new ArrayList<>()).add(contentType.toString());
+    }
 
     // Set unique request id
-    headers.put(XiaomiHeader.REQUEST_ID.getName(), getUniqueRequestId());
+    headers.computeIfAbsent(XiaomiHeader.REQUEST_ID.getName(), k -> new ArrayList<>()).add(getUniqueRequestId());
 
-    Map<String, Object> httpHeaders = new HashMap<String, Object>();
-    for (Map.Entry<String, String> entry : headers.entries()) {
-      httpHeaders.put(entry.getKey(), entry.getValue());
-    }
+    Map<String, Object> httpHeaders = new HashMap<>();
+    headers.forEach((key, values) -> {
+      if (values != null && !values.isEmpty()) {
+        httpHeaders.put(key, values.getLast());
+      }
+    });
     return httpHeaders;
   }
 
@@ -338,14 +300,11 @@ public class FDSHttpClient {
     return clientId + "_" + random.nextInt();
   }
 
-  public <T> Object processResponse(HttpResponse response, Class<T> c,
-      String purposeStr) throws GalaxyFDSClientException {
+  public <T> Object processResponse(HttpResponse response, Class<T> c, String purposeStr) throws GalaxyFDSClientException {
     return processResponse(response, c, null, purposeStr);
   }
 
-  public <T> T processResponse(HttpResponse response, Class<T> c,
-      JsonDeserializer<T> deserializer,
-      String purposeStr) throws GalaxyFDSClientException {
+  public <T> T processResponse(HttpResponse response, Class<T> c, JsonDeserializer<T> deserializer, String purposeStr) throws GalaxyFDSClientException {
     HttpEntity httpEntity = response.getEntity();
     int statusCode = response.getStatusLine().getStatusCode();
     try {
@@ -383,26 +342,26 @@ public class FDSHttpClient {
   }
 
   public String formatErrorMsg(String purpose, HttpResponse response) {
-    String msg = "failed to " + purpose + ", status=" +
-        response.getStatusLine().getStatusCode() +
-        ", reason=" + getResponseEntityPhrase(response);
+    String msg = "failed to " + purpose + ", status=" + response.getStatusLine().getStatusCode() + ", reason=" + getResponseEntityPhrase(response);
     Header requestIdHeader = response.getFirstHeader(XiaomiHeader.REQUEST_ID.getName());
-    if(requestIdHeader != null ){
+    if (requestIdHeader != null) {
       msg += ", resquest-Id=" + requestIdHeader.getValue();
     }
     return msg;
   }
 
   public void closeResponseEntity(HttpResponse response) {
-    if (response == null)
+    if (response == null) {
       return;
+    }
     HttpEntity entity = response.getEntity();
-    if (entity != null && entity.isStreaming())
+    if (entity != null && entity.isStreaming()) {
       try {
         entity.getContent().close();
       } catch (IOException e) {
         LOG.error(formatErrorMsg("close response entity", e));
       }
+    }
   }
 
   public String getResponseEntityPhrase(HttpResponse response) {
@@ -410,11 +369,13 @@ public class FDSHttpClient {
       InputStream inputStream = response.getEntity().getContent();
       ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
       byte[] data = new byte[1024];
-      for (int count; (count = inputStream.read(data, 0, 1024)) != -1; )
+      for (int count; (count = inputStream.read(data, 0, 1024)) != -1; ) {
         outputStream.write(data, 0, count);
+      }
       String reason = outputStream.toString();
-      if (reason == null || reason.isEmpty())
+      if (reason == null || reason.isEmpty()) {
         return response.getStatusLine().getReasonPhrase();
+      }
       return reason;
     } catch (Exception e) {
       LOG.error("Fail to get entity string");
@@ -422,9 +383,8 @@ public class FDSHttpClient {
     }
   }
 
-  public HttpResponse executeHttpRequest(HttpUriRequest httpRequest,
-      Action action) throws GalaxyFDSClientException {
-    if(!Strings.isNullOrEmpty(fdsConfig.getUserAgent())) {
+  public HttpResponse executeHttpRequest(HttpUriRequest httpRequest, Action action) throws GalaxyFDSClientException {
+    if (StringUtils.isNotBlank(fdsConfig.getUserAgent())) {
       httpRequest.setHeader(Common.USER_AGENT, fdsConfig.getUserAgent());
     }
 
@@ -486,11 +446,14 @@ public class FDSHttpClient {
     return ipBlackList;
   }
 
-  public LinkedListMultimap<String, String> headerArray2MultiValuedMap(Header[] headers) {
-    LinkedListMultimap<String, String> m = LinkedListMultimap.create();
-    if (headers != null) for (Header h : headers) {
-      m.put(h.getName(), h.getValue());
+  public Map<String, List<String>> headerArray2MultiValuedMap(Header[] headers) {
+    Map<String, List<String>> m = new LinkedHashMap<>();
+    if (headers != null) {
+      for (Header h : headers) {
+        m.computeIfAbsent(h.getName(), k -> new ArrayList<>()).add(h.getValue());
+      }
     }
     return m;
   }
+
 }

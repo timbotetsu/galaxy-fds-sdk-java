@@ -1,6 +1,6 @@
 package com.xiaomi.infra.galaxy.fds.client.network;
 
-import org.apache.commons.lang.BooleanUtils;
+import org.apache.commons.lang3.BooleanUtils;
 import org.apache.http.HttpInetConnection;
 import org.apache.http.client.protocol.HttpClientContext;
 import org.apache.http.protocol.HttpContext;
@@ -13,7 +13,7 @@ import org.apache.http.protocol.HttpContext;
 public class HttpContextUtil {
 
   public static void setRequestRepeatable(HttpContext context, boolean repeatable) {
-    context.setAttribute(Constants.REQUEST_REPEATABLE, BooleanUtils.toBooleanObject(repeatable));
+    context.setAttribute(Constants.REQUEST_REPEATABLE, BooleanUtils.toBoolean(repeatable));
   }
 
   public static boolean isRequestRepeatable(HttpContext context) {
@@ -26,12 +26,12 @@ public class HttpContextUtil {
   }
 
   public static String getRemoteAddressFromContext(HttpContext context) {
-    String remoteAddress = (String)context.getAttribute(Constants.SOCKET_REMOTE_ADDRESS);
+    String remoteAddress = (String) context.getAttribute(Constants.SOCKET_REMOTE_ADDRESS);
     if (remoteAddress == null) {
       if (HttpClientContext.class.isInstance(context)) {
-        HttpClientContext cc = (HttpClientContext)context;
+        HttpClientContext cc = (HttpClientContext) context;
         if (cc.getConnection() instanceof HttpInetConnection) {
-          HttpInetConnection inetConnection = (HttpInetConnection)cc.getConnection();
+          HttpInetConnection inetConnection = (HttpInetConnection) cc.getConnection();
           remoteAddress = inetConnection.getRemoteAddress().getHostAddress();
         }
       }
@@ -47,7 +47,7 @@ public class HttpContextUtil {
     String hostName = (String) context.getAttribute(Constants.REQUEST_HOST_NAME);
     if (hostName == null) {
       if (HttpClientContext.class.isInstance(context)) {
-        HttpClientContext cc = (HttpClientContext)context;
+        HttpClientContext cc = (HttpClientContext) context;
         hostName = cc.getTargetHost().getHostName();
       }
     } else {
@@ -55,4 +55,5 @@ public class HttpContextUtil {
     }
     return hostName;
   }
+
 }

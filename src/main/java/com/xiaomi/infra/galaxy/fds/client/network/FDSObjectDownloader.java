@@ -1,23 +1,21 @@
 package com.xiaomi.infra.galaxy.fds.client.network;
 
-import com.google.common.collect.LinkedListMultimap;
 import com.xiaomi.infra.galaxy.fds.Action;
 import com.xiaomi.infra.galaxy.fds.Common;
 import com.xiaomi.infra.galaxy.fds.auth.signature.Utils;
 import com.xiaomi.infra.galaxy.fds.auth.signature.XiaomiHeader;
 import com.xiaomi.infra.galaxy.fds.client.exception.GalaxyFDSClientException;
 import com.xiaomi.infra.galaxy.fds.model.HttpMethod;
-import org.apache.http.Header;
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpResponse;
-import org.apache.http.client.methods.HttpUriRequest;
-
 import java.io.IOException;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.apache.http.Header;
+import org.apache.http.HttpEntity;
+import org.apache.http.HttpResponse;
+import org.apache.http.client.methods.HttpUriRequest;
 
 /**
  * Copyright 2015, Xiaomi.
@@ -32,14 +30,12 @@ public class FDSObjectDownloader {
     this.fdsHttpClient = fdsHttpClient;
   }
 
-  public HttpResponse executeRequest(HttpUriRequest httpUriRequest) throws
-      GalaxyFDSClientException, IOException {
+  public HttpResponse executeRequest(HttpUriRequest httpUriRequest) throws GalaxyFDSClientException, IOException {
     HttpResponse response = fdsHttpClient.executeHttpRequest(httpUriRequest, Action.GetObject);
     return response;
   }
 
-  public HttpUriRequest prepareRequest(URI uri, String versionId, long startPos, long endPos)
-      throws GalaxyFDSClientException {
+  public HttpUriRequest prepareRequest(URI uri, String versionId, long startPos, long endPos) throws GalaxyFDSClientException {
     Map<String, List<Object>> headers = new HashMap<String, List<Object>>();
     if (startPos != 0 || endPos != -1) {
       List<Object> objects = new ArrayList<Object>();
@@ -55,8 +51,7 @@ public class FDSObjectDownloader {
       params.put(VERSION_ID, versionId);
     }
 
-    return fdsHttpClient.prepareRequestMethod(uri, HttpMethod.GET, null, null,
-        params, headers, null);
+    return fdsHttpClient.prepareRequestMethod(uri, HttpMethod.GET, null, null, params, headers, null);
   }
 
   public long getObjectSize(Header[] httpHeaders, HttpEntity httpEntity) {
@@ -83,15 +78,13 @@ public class FDSObjectDownloader {
   }
 
   private Map<String, String> toLowerCaseMap(Header[] httpHeaders) {
-    LinkedListMultimap<String, String> headers =
-        fdsHttpClient.headerArray2MultiValuedMap(httpHeaders);
-    Map<String, String> headerMap = new HashMap<String, String>();
-    for (Map.Entry<String, String> entry: headers.entries()) {
-      String keyLowerCase = entry.getKey().toLowerCase();
-      String value = entry.getValue();
-      if (headerMap.containsKey(keyLowerCase)) continue;
-      headerMap.put(keyLowerCase, value);
-    }
+    Map<String, List<String>> headers = fdsHttpClient.headerArray2MultiValuedMap(httpHeaders);
+    Map<String, String> headerMap = new HashMap<>();
+
+    headers.forEach((key, values) -> {
+      headerMap.put(key.toLowerCase(), values.getLast());
+    });
+
     return headerMap;
   }
 }

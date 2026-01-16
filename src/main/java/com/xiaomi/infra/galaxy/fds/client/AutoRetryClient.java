@@ -1,14 +1,12 @@
 package com.xiaomi.infra.galaxy.fds.client;
 
-import com.google.common.base.Preconditions;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
-
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.util.Set;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 
 /**
  * Created by yepeng on 18-7-10.
@@ -21,18 +19,17 @@ public class AutoRetryClient {
     private int maxRetry;
     private Set<String> retryMethodSet;
 
-    private AutoRetryHandler(GalaxyFDS fdsClient, int maxRetry){
+    private AutoRetryHandler(GalaxyFDS fdsClient, int maxRetry) {
       this.fdsClient = fdsClient;
       this.maxRetry = maxRetry;
       this.retryMethodSet = fdsClient.getRetryMethodSet();
     }
 
-    @Override
-    public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
-      if(!retryMethodSet.contains(method.getName())) {
+    @Override public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+      if (!retryMethodSet.contains(method.getName())) {
         try {
           return method.invoke(fdsClient, args);
-        } catch (InvocationTargetException e){
+        } catch (InvocationTargetException e) {
           throw e.getCause();
         }
       } else {
@@ -44,7 +41,7 @@ public class AutoRetryClient {
           } catch (InvocationTargetException e) {
             Throwable cause = e.getCause();
             Integer errorCode = Utils.getErrorCode(cause.getMessage());
-            if(errorCode != null && errorCode != 429 && errorCode < 500){
+            if (errorCode != null && errorCode != 429 && errorCode < 500) {
               throw cause;
             }
 
@@ -61,13 +58,14 @@ public class AutoRetryClient {
   }
 
   public static GalaxyFDS getAutoRetryClient(GalaxyFDS fdsClient, int maxRetry) {
-    Preconditions.checkArgument(maxRetry >= 1, "Expected maxRetry > 1");
-    return (GalaxyFDS) Proxy.newProxyInstance(GalaxyFDSClient.class.getClassLoader(),
-        GalaxyFDSClient.class.getInterfaces(),
-        new AutoRetryHandler(fdsClient, maxRetry));
+    if (maxRetry <= 1) {
+      throw new IllegalArgumentException("Expected maxRetry > 1");
+    }
+    return (GalaxyFDS) Proxy.newProxyInstance(GalaxyFDSClient.class.getClassLoader(), GalaxyFDSClient.class.getInterfaces(),
+      new AutoRetryHandler(fdsClient, maxRetry));
   }
 
-  public static GalaxyFDS getAutoRetryClient(GalaxyFDS fdsClient){
+  public static GalaxyFDS getAutoRetryClient(GalaxyFDS fdsClient) {
     return getAutoRetryClient(fdsClient, 1);
   }
 }

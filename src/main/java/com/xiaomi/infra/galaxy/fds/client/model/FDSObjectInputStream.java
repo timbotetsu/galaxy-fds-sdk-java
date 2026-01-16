@@ -1,22 +1,22 @@
 package com.xiaomi.infra.galaxy.fds.client.model;
 
-import com.google.common.collect.LinkedListMultimap;
 import com.xiaomi.infra.galaxy.fds.client.FDSClientConfiguration;
 import com.xiaomi.infra.galaxy.fds.client.GalaxyFDSClient;
 import com.xiaomi.infra.galaxy.fds.client.exception.GalaxyFDSClientException;
 import com.xiaomi.infra.galaxy.fds.client.network.FDSHttpClient;
 import com.xiaomi.infra.galaxy.fds.client.network.FDSObjectDownloader;
 import com.xiaomi.infra.galaxy.fds.model.FDSObjectMetadata;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.URI;
+import java.util.List;
+import java.util.Map;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
 import org.apache.http.client.methods.HttpUriRequest;
-
-import java.io.IOException;
-import java.io.InputStream;
-import java.net.URI;
 
 /**
  * Copyright 2015, Xiaomi.
@@ -41,9 +41,8 @@ public class FDSObjectInputStream extends InputStream {
 
   private HttpUriRequest httpUriRequest;
 
-  private FDSObjectInputStream(FDSHttpClient fdsHttpClient, GalaxyFDSClient fdsClient,
-      HttpEntity httpEntity, URI uri, String bucketName, String objectName, String versionId,
-      long pos, long uploadTime) throws GalaxyFDSClientException, IOException {
+  private FDSObjectInputStream(FDSHttpClient fdsHttpClient, GalaxyFDSClient fdsClient, HttpEntity httpEntity, URI uri, String bucketName, String objectName,
+    String versionId, long pos, long uploadTime) throws GalaxyFDSClientException, IOException {
     this.fdsClient = fdsClient;
     this.bucketName = bucketName;
     this.objectName = objectName;
@@ -64,16 +63,14 @@ public class FDSObjectInputStream extends InputStream {
     if (!fdsConfig.isEnablePreRead()) {
       httpUriRequest = objectDownloader.prepareRequest(uri, versionId, pos, -1);
     } else {
-      httpUriRequest = objectDownloader.prepareRequest(uri, versionId, pos, pos +
-          fdsConfig.getPreReadPartSize() - 1);
+      httpUriRequest = objectDownloader.prepareRequest(uri, versionId, pos, pos + fdsConfig.getPreReadPartSize() - 1);
     }
     HttpResponse response = objectDownloader.executeRequest(httpUriRequest);
     HttpEntity entity = response.getEntity();
     try {
       int statusCode = response.getStatusLine().getStatusCode();
       if (statusCode == HttpStatus.SC_OK || statusCode == HttpStatus.SC_PARTIAL_CONTENT) {
-        LinkedListMultimap<String, String> headers =
-            fdsHttpClient.headerArray2MultiValuedMap(response.getAllHeaders());
+        Map<String, List<String>> headers = fdsHttpClient.headerArray2MultiValuedMap(response.getAllHeaders());
         metadata = FDSObjectMetadata.parseObjectMetadata(headers);
         summary = new FDSObjectSummary();
         summary.setBucketName(this.bucketName);
@@ -82,9 +79,8 @@ public class FDSObjectInputStream extends InputStream {
         summary.setUploadTime(metadata.getLastModified().getTime());
         this.uploadTime = summary.getUploadTime();
       } else {
-        String errorMsg = fdsHttpClient.formatErrorMsg("get object [" + objectName + "] with"
-                + " versionId [" + versionId + "] from bucket [" + bucketName + "]",
-            response);
+        String errorMsg =
+          fdsHttpClient.formatErrorMsg("get object [" + objectName + "] with" + " versionId [" + versionId + "] from bucket [" + bucketName + "]", response);
         LOG.error(errorMsg);
         throw new GalaxyFDSClientException(errorMsg, statusCode);
       }
@@ -96,14 +92,12 @@ public class FDSObjectInputStream extends InputStream {
     if (!fdsConfig.isEnablePreRead()) {
       this.wrappedStream = entity.getContent();
     } else {
-      this.wrappedStream = new PreReadInputStream(fdsConfig, entity.getContent(),
-          fdsHttpClient, objectDownloader, uri, versionId, this.pos, summary.getSize(),
-          this.uploadTime);
+      this.wrappedStream =
+        new PreReadInputStream(fdsConfig, entity.getContent(), fdsHttpClient, objectDownloader, uri, versionId, this.pos, summary.getSize(), this.uploadTime);
     }
   }
 
-  @Override
-  public int read() throws IOException {
+  @Override public int read() throws IOException {
     int retry = 0;
     int data;
     while (true) {
@@ -129,8 +123,7 @@ public class FDSObjectInputStream extends InputStream {
     return data;
   }
 
-  @Override
-  public int read(byte[] b, int off, int len) throws IOException {
+  @Override public int read(byte[] b, int off, int len) throws IOException {
     int retry = 0;
     int length;
     while (true) {
@@ -156,10 +149,8 @@ public class FDSObjectInputStream extends InputStream {
     return length;
   }
 
-  @Override
-  public void close() throws IOException {
-    if (!(wrappedStream instanceof PreReadInputStream) &&
-        httpUriRequest != null && wrappedStream.read() != -1) {
+  @Override public void close() throws IOException {
+    if (!(wrappedStream instanceof PreReadInputStream) && httpUriRequest != null && wrappedStream.read() != -1) {
       httpUriRequest.abort();
       httpUriRequest = null;
     }
@@ -260,10 +251,9 @@ public class FDSObjectInputStream extends InputStream {
       return this;
     }
 
-    public FDSObjectInputStream build() throws IOException,
-        GalaxyFDSClientException {
-      return new FDSObjectInputStream(this.fdsHttpClient, this.fdsClient, this.httpEntity,
-          this.uri, this.bucketName, this.objectName, this.versionId, this.pos, this.uploadTime);
+    public FDSObjectInputStream build() throws IOException, GalaxyFDSClientException {
+      return new FDSObjectInputStream(this.fdsHttpClient, this.fdsClient, this.httpEntity, this.uri, this.bucketName, this.objectName, this.versionId, this.pos,
+        this.uploadTime);
     }
   }
 }

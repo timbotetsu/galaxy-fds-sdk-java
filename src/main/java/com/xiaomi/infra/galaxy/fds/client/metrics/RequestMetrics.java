@@ -1,22 +1,19 @@
 package com.xiaomi.infra.galaxy.fds.client.metrics;
 
-import java.util.HashMap;
-import java.util.Map;
-
-import com.google.common.base.Preconditions;
+import com.xiaomi.infra.galaxy.fds.Action;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
-import com.xiaomi.infra.galaxy.fds.Action;
-
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Objects;
 
 public class RequestMetrics {
 
   private static final Log LOG = LogFactory.getLog(RequestMetrics.class);
 
   private Action action;
-  private Map<ClientMetrics.LatencyMetricType, TimingInfo> latencyMetrics
-      = new HashMap<ClientMetrics.LatencyMetricType, TimingInfo>();
+  private Map<ClientMetrics.LatencyMetricType, TimingInfo> latencyMetrics = new HashMap<>();
 
   public void setRequestTypeName(Action action) {
     this.action = action;
@@ -39,17 +36,13 @@ public class RequestMetrics {
   public ClientMetrics toClientMetrics() {
     ClientMetrics clientMetrics = new ClientMetrics();
 
-    for (Map.Entry<ClientMetrics.LatencyMetricType, TimingInfo> entry
-        : latencyMetrics.entrySet()) {
+    for (Map.Entry<ClientMetrics.LatencyMetricType, TimingInfo> entry : latencyMetrics.entrySet()) {
       TimingInfo timingInfo = entry.getValue();
-      Preconditions.checkNotNull(timingInfo.getStartTimeMilli());
-      Preconditions.checkNotNull(timingInfo.getEndTimeMilli());
+      Objects.requireNonNull(timingInfo.getStartTimeMilli());
+      Objects.requireNonNull(timingInfo.getEndTimeMilli());
       String metricName = action.toString() + "." + entry.getKey().toString();
-      MetricData metricData = new MetricData()
-          .withMetricType(MetricData.MetricType.Latency)
-          .withMetricName(metricName)
-          .withValue(timingInfo.getEndTimeMilli() - timingInfo.getStartTimeMilli())
-          .withTimeStamp(timingInfo.getEndTimeMilli() / 1000);
+      MetricData metricData = new MetricData().withMetricType(MetricData.MetricType.Latency).withMetricName(metricName)
+        .withValue(timingInfo.getEndTimeMilli() - timingInfo.getStartTimeMilli()).withTimeStamp(timingInfo.getEndTimeMilli() / 1000);
       clientMetrics.add(metricData);
     }
 

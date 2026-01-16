@@ -1,5 +1,35 @@
 package com.xiaomi.infra.galaxy.fds.client;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+import com.xiaomi.infra.galaxy.fds.SubResource;
+import com.xiaomi.infra.galaxy.fds.client.credential.BasicFDSCredential;
+import com.xiaomi.infra.galaxy.fds.client.credential.GalaxyFDSCredential;
+import com.xiaomi.infra.galaxy.fds.client.exception.GalaxyFDSClientException;
+import com.xiaomi.infra.galaxy.fds.client.model.FDSBucket;
+import com.xiaomi.infra.galaxy.fds.client.model.FDSCopyObjectRequest;
+import com.xiaomi.infra.galaxy.fds.client.model.FDSObject;
+import com.xiaomi.infra.galaxy.fds.client.model.FDSObjectListing;
+import com.xiaomi.infra.galaxy.fds.client.model.FDSObjectSummary;
+import com.xiaomi.infra.galaxy.fds.client.model.FDSPutObjectRequest;
+import com.xiaomi.infra.galaxy.fds.client.model.GzipCompressingInputStream;
+import com.xiaomi.infra.galaxy.fds.client.model.InitiateMultipartUploadRequest;
+import com.xiaomi.infra.galaxy.fds.client.model.ProgressListener;
+import com.xiaomi.infra.galaxy.fds.model.AccessControlList;
+import com.xiaomi.infra.galaxy.fds.model.CORSConfiguration;
+import com.xiaomi.infra.galaxy.fds.model.CORSConfiguration.CORSRule;
+import com.xiaomi.infra.galaxy.fds.model.FDSObjectMetadata;
+import com.xiaomi.infra.galaxy.fds.model.HttpMethod;
+import com.xiaomi.infra.galaxy.fds.model.LifecycleConfig;
+import com.xiaomi.infra.galaxy.fds.result.CopyObjectResult;
+import com.xiaomi.infra.galaxy.fds.result.InitMultipartUploadResult;
+import com.xiaomi.infra.galaxy.fds.result.PutObjectResult;
+import com.xiaomi.infra.galaxy.fds.result.UploadPartResult;
+import com.xiaomi.infra.galaxy.fds.result.UploadPartResultList;
 import java.io.BufferedInputStream;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -17,23 +47,6 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-
-import com.google.common.collect.Lists;
-import com.xiaomi.infra.galaxy.fds.client.model.FDSBucket;
-import com.xiaomi.infra.galaxy.fds.client.model.FDSCopyObjectRequest;
-import com.xiaomi.infra.galaxy.fds.client.model.FDSObject;
-import com.xiaomi.infra.galaxy.fds.client.model.FDSObjectListing;
-import com.xiaomi.infra.galaxy.fds.client.model.FDSObjectSummary;
-import com.xiaomi.infra.galaxy.fds.client.model.FDSPutObjectRequest;
-import com.xiaomi.infra.galaxy.fds.client.model.GzipCompressingInputStream;
-import com.xiaomi.infra.galaxy.fds.client.model.InitiateMultipartUploadRequest;
-import com.xiaomi.infra.galaxy.fds.client.model.ProgressListener;
-import com.xiaomi.infra.galaxy.fds.model.LifecycleConfig;
-import com.xiaomi.infra.galaxy.fds.result.CopyObjectResult;
-import com.xiaomi.infra.galaxy.fds.result.InitMultipartUploadResult;
-import com.xiaomi.infra.galaxy.fds.result.PutObjectResult;
-import com.xiaomi.infra.galaxy.fds.result.UploadPartResult;
-import com.xiaomi.infra.galaxy.fds.result.UploadPartResultList;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.logging.Log;
@@ -48,25 +61,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
 
-import com.xiaomi.infra.galaxy.fds.SubResource;
-import com.xiaomi.infra.galaxy.fds.client.credential.BasicFDSCredential;
-import com.xiaomi.infra.galaxy.fds.client.credential.GalaxyFDSCredential;
-import com.xiaomi.infra.galaxy.fds.client.exception.GalaxyFDSClientException;
-import com.xiaomi.infra.galaxy.fds.model.AccessControlList;
-import com.xiaomi.infra.galaxy.fds.model.FDSObjectMetadata;
-import com.xiaomi.infra.galaxy.fds.model.HttpMethod;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
-import com.xiaomi.infra.galaxy.fds.model.CORSConfiguration;
-import com.xiaomi.infra.galaxy.fds.model.CORSConfiguration.CORSRule;
-
-@Ignore
-public class TestGalaxyFDSClient {
+@Ignore public class TestGalaxyFDSClient {
 
   private static final Log LOG = LogFactory.getLog(GalaxyFDSClient.class);
   private static String accessId = "";
@@ -74,8 +69,7 @@ public class TestGalaxyFDSClient {
   private static String accessIdAcl = "";
   private static String accessSecretAcl = "";
   private static String endpoint = "";
-  private static final String bucketPrefix = TestGalaxyFDSClient.class.getSimpleName() +
-      "-" + System.currentTimeMillis();
+  private static final String bucketPrefix = TestGalaxyFDSClient.class.getSimpleName() + "-" + System.currentTimeMillis();
   private static GalaxyFDSCredential credential;
   private static GalaxyFDSCredential credentialAcl;
   private long limitBandwidth = 10 * 1024 * 1024;
@@ -86,11 +80,9 @@ public class TestGalaxyFDSClient {
   private String bucketName;
   private List<String> bucket2DeleteList;
 
-  @Rule
-  public TestName currentTestName = new TestName();
+  @Rule public TestName currentTestName = new TestName();
 
-  @BeforeClass
-  public static void setUpClass() throws Exception {
+  @BeforeClass public static void setUpClass() throws Exception {
     Properties prop = new Properties();
     InputStream steam = TestGalaxyFDSClient.class.getClassLoader().getResourceAsStream("test.properties");
     prop.load(steam);
@@ -106,12 +98,10 @@ public class TestGalaxyFDSClient {
     credentialAcl = new BasicFDSCredential(accessIdAcl, accessSecretAcl);
   }
 
-  @AfterClass
-  public static void tearDownClass() throws Exception {
+  @AfterClass public static void tearDownClass() throws Exception {
   }
 
-  @Before
-  public void setUp() throws Exception {
+  @Before public void setUp() throws Exception {
     FDSClientConfiguration fdsConfig = new FDSClientConfiguration(endpoint, false);
     fdsConfig.setEnableMd5Calculate(true);
     fdsConfig.setDownloadBandwidth(limitBandwidth);
@@ -134,16 +124,14 @@ public class TestGalaxyFDSClient {
     return bucketName.toLowerCase();
   }
 
-  @After
-  public void tearDown() throws Exception {
+  @After public void tearDown() throws Exception {
     deleteObjectsAndBucket(fdsClient, bucketName);
-    for (String bucket2Delete : bucket2DeleteList){
+    for (String bucket2Delete : bucket2DeleteList) {
       deleteObjectsAndBucket(fdsClient, bucket2Delete);
     }
   }
 
-  @Test(timeout = 120 * 1000)
-  public void testCreateAndDeleteBucket() throws Exception {
+  @Test(timeout = 120 * 1000) public void testCreateAndDeleteBucket() throws Exception {
     assertTrue(fdsClient.doesBucketExist(bucketName));
     fdsClient.deleteBucket(bucketName);
     assertTrue(!fdsClient.doesBucketExist(bucketName));
@@ -152,21 +140,22 @@ public class TestGalaxyFDSClient {
   private void deleteObjectsAndBucket(GalaxyFDS client, String bucketName) {
     // delete all objects
     try {
-      if (client.doesBucketExist(bucketName))
+      if (client.doesBucketExist(bucketName)) {
         client.deleteObjects(bucketName, "");
+      }
     } catch (GalaxyFDSClientException e) {
       LOG.warn("fail to delete object", e);
     }
     try {
-      if (client.doesBucketExist(bucketName))
+      if (client.doesBucketExist(bucketName)) {
         client.deleteBucket(bucketName);
+      }
     } catch (GalaxyFDSClientException e) {
       LOG.warn("fail to delete bucket: " + bucketName, e);
     }
   }
 
-  @Test(timeout = 120 * 1000)
-  public void testListBuckets() throws Exception {
+  @Test(timeout = 120 * 1000) public void testListBuckets() throws Exception {
     final int bucketNum = 5;
     String bucketPrefix = bucketName + "-";
     List<String> bucketNameList = new ArrayList<String>();
@@ -184,23 +173,21 @@ public class TestGalaxyFDSClient {
     int i = 0;
     for (FDSBucket bucket : buckets) {
       String bucketNameI = bucket.getName();
-      if (!bucketNameI.startsWith(bucketPrefix))
+      if (!bucketNameI.startsWith(bucketPrefix)) {
         continue;
+      }
       Assert.assertTrue(-1 != bucketNameList.indexOf(bucket.getName()));
       ++i;
     }
     Assert.assertEquals(bucketNameList.size(), i);
   }
 
-  @Test(timeout = 120 * 1000)
-  public void testCreateAndDeleteObject() throws Exception {
+  @Test(timeout = 120 * 1000) public void testCreateAndDeleteObject() throws Exception {
     final String objectName = "testCreatAndDeleteObject_object";
     final String testContent = "test_content";
     assertTrue(!fdsClient.doesObjectExist(bucketName, objectName));
 
-    fdsClient.putObject(bucketName, objectName,
-        new ByteArrayInputStream(testContent.getBytes()),
-        new FDSObjectMetadata());
+    fdsClient.putObject(bucketName, objectName, new ByteArrayInputStream(testContent.getBytes()), new FDSObjectMetadata());
 
     assertTrue(fdsClient.doesObjectExist(bucketName, objectName));
     FDSObject fdsObject = fdsClient.getObject(bucketName, objectName);
@@ -208,9 +195,8 @@ public class TestGalaxyFDSClient {
     assertEquals(testContent, content);
   }
 
-  private List<String> prepareObjects(final String bucketName, final int objectNum,
-      final String objectNamePrefix, final String objectContentBase)
-      throws GalaxyFDSClientException, IOException {
+  private List<String> prepareObjects(final String bucketName, final int objectNum, final String objectNamePrefix, final String objectContentBase)
+    throws GalaxyFDSClientException, IOException {
     final String[] objectNameList = new String[objectNum];
 
     Thread[] threads = new Thread[10];
@@ -223,9 +209,7 @@ public class TestGalaxyFDSClient {
             objectNameList[j] = objectName;
             String objectContent = objectContentBase + j;
             try {
-              fdsClient.putObject(bucketName, objectName,
-                  new ByteArrayInputStream((objectContent).getBytes()),
-                  new FDSObjectMetadata());
+              fdsClient.putObject(bucketName, objectName, new ByteArrayInputStream((objectContent).getBytes()), new FDSObjectMetadata());
             } catch (GalaxyFDSClientException e) {
               LOG.error(e);
             }
@@ -233,73 +217,73 @@ public class TestGalaxyFDSClient {
         }
       });
     }
-    for (int i = 0; i < 10; ++i)
+    for (int i = 0; i < 10; ++i) {
       threads[i].start();
-    for (int i = 0; i < 10; ++i)
+    }
+    for (int i = 0; i < 10; ++i) {
       try {
         threads[i].join();
       } catch (InterruptedException e) {
         LOG.error(e);
       }
+    }
     return new ArrayList<String>(Arrays.asList(objectNameList));
   }
 
-  private List<String> prepareRandomObjects(String bucketName, int objectNum,
-      String objectNamePrefix, String objectContentBase)
-      throws GalaxyFDSClientException, IOException {
+  private List<String> prepareRandomObjects(String bucketName, int objectNum, String objectNamePrefix, String objectContentBase)
+    throws GalaxyFDSClientException, IOException {
 
     List<String> objectNameList = new ArrayList<String>();
     // create object name list, with null/duplicated/not exist/normal strings
     int nullObjectNameCnt = objectNum / 20 + 1;
-    for (int i = 0; i < nullObjectNameCnt; ++i)
+    for (int i = 0; i < nullObjectNameCnt; ++i) {
       objectNameList.add(null);
+    }
     int emptyObjectNameCnt = objectNum / 30 + 1;
-    for (int i = 0; i < emptyObjectNameCnt; ++i)
+    for (int i = 0; i < emptyObjectNameCnt; ++i) {
       objectNameList.add("");
+    }
     int dupObjectNameCnt = objectNum / 15 + 1;
-    for (int i = 0; i < dupObjectNameCnt; ++i)
+    for (int i = 0; i < dupObjectNameCnt; ++i) {
       objectNameList.add(objectNamePrefix + i);
+    }
     int notExistObjectNameCnt = nullObjectNameCnt + emptyObjectNameCnt;
-    for (int i = 0; i < notExistObjectNameCnt; ++i)
+    for (int i = 0; i < notExistObjectNameCnt; ++i) {
       objectNameList.add(objectContentBase + (objectNum - i));
-    objectNameList.addAll(prepareObjects(bucketName, objectNum -
-        nullObjectNameCnt - emptyObjectNameCnt - dupObjectNameCnt - notExistObjectNameCnt,
-        objectNamePrefix, objectContentBase));
+    }
+    objectNameList.addAll(
+      prepareObjects(bucketName, objectNum - nullObjectNameCnt - emptyObjectNameCnt - dupObjectNameCnt - notExistObjectNameCnt, objectNamePrefix,
+        objectContentBase));
 
     Collections.shuffle(objectNameList);
     return objectNameList;
   }
 
-  private void assertObjectsNotExist(String bucketName,
-      List<String> objectNameList)
-      throws GalaxyFDSClientException {
+  private void assertObjectsNotExist(String bucketName, List<String> objectNameList) throws GalaxyFDSClientException {
     for (String objectName : objectNameList) {
-      if (objectName != null && !objectName.isEmpty())
+      if (objectName != null && !objectName.isEmpty()) {
         Assert.assertFalse(fdsClient.doesObjectExist(bucketName, objectName));
+      }
     }
   }
 
-  private void assertObjectsExistWithContentPrefix(String bucketName,
-      List<String> objectNameList, String objectContentPrefix)
-      throws GalaxyFDSClientException, IOException {
+  private void assertObjectsExistWithContentPrefix(String bucketName, List<String> objectNameList, String objectContentPrefix)
+    throws GalaxyFDSClientException, IOException {
     for (String objectName : objectNameList) {
-      if (objectName == null || objectName.isEmpty())
+      if (objectName == null || objectName.isEmpty()) {
         continue;
+      }
       FDSObject object = fdsClient.getObject(bucketName, objectName);
-      Assert.assertTrue(streamToString(object.getObjectContent()).
-          startsWith(objectContentPrefix));
+      Assert.assertTrue(streamToString(object.getObjectContent()).startsWith(objectContentPrefix));
     }
   }
 
-  @Test(timeout = 120*1000)
-  public void testDeleteObjectsWithNameList() throws Exception {
+  @Test(timeout = 120 * 1000) public void testDeleteObjectsWithNameList() throws Exception {
     final int objectSize = 30;
 
-    List<String> objectNameList = prepareRandomObjects(bucketName, objectSize,
-        bucketName + "_objects_/", bucketName + "lalala");
+    List<String> objectNameList = prepareRandomObjects(bucketName, objectSize, bucketName + "_objects_/", bucketName + "lalala");
 
-    List<String> objectNameShouldnotDelete = prepareObjects(bucketName, 10,
-        bucketName + "_objects_/_", bucketName + "dadada");
+    List<String> objectNameShouldnotDelete = prepareObjects(bucketName, 10, bucketName + "_objects_/_", bucketName + "dadada");
 
     List<Map<String, Object>> failList = fdsClient.deleteObjects(bucketName, objectNameList);
 
@@ -308,12 +292,12 @@ public class TestGalaxyFDSClient {
 
     assertObjectsNotExist(bucketName, objectNameList);
 
-    assertObjectsExistWithContentPrefix(bucketName, objectNameShouldnotDelete,
-        bucketName + "dadada");
+    assertObjectsExistWithContentPrefix(bucketName, objectNameShouldnotDelete, bucketName + "dadada");
 
     try {
-      for (; objectNameList.size() <= FDSClientConfiguration.DEFAULT_MAX_BATCH_DELETE_SIZE;)
+      for (; objectNameList.size() <= FDSClientConfiguration.DEFAULT_MAX_BATCH_DELETE_SIZE; ) {
         objectNameList.addAll(objectNameShouldnotDelete);
+      }
       fdsClient.deleteObjects(bucketName, objectNameList);
       Assert.fail();
     } catch (Exception e) {
@@ -325,38 +309,26 @@ public class TestGalaxyFDSClient {
     Assert.assertTrue(failList.isEmpty());
   }
 
-  @Test(timeout = 120*1000)
-  public void testDelObjWithPrefix()
-      throws GalaxyFDSClientException, IOException {
+  @Test(timeout = 120 * 1000) public void testDelObjWithPrefix() throws GalaxyFDSClientException, IOException {
     final int objectSize = 123;
 
-    List<String> objectNameList = prepareRandomObjects(bucketName, objectSize,
-        bucketName + "_objects_0/0/", bucketName + "dalalala");
-    objectNameList.addAll(prepareObjects(bucketName, 3,
-        bucketName + "_objects_0/1/", bucketName + "dalalaTa"));
-    objectNameList.addAll(prepareObjects(bucketName, 2,
-        bucketName + "_objects_0/0", bucketName + "dalalaTa"));
-    objectNameList.addAll(prepareObjects(bucketName, 1,
-        bucketName + "_objects_0/1", bucketName + "dalalaTa"));
+    List<String> objectNameList = prepareRandomObjects(bucketName, objectSize, bucketName + "_objects_0/0/", bucketName + "dalalala");
+    objectNameList.addAll(prepareObjects(bucketName, 3, bucketName + "_objects_0/1/", bucketName + "dalalaTa"));
+    objectNameList.addAll(prepareObjects(bucketName, 2, bucketName + "_objects_0/0", bucketName + "dalalaTa"));
+    objectNameList.addAll(prepareObjects(bucketName, 1, bucketName + "_objects_0/1", bucketName + "dalalaTa"));
 
-    List<String> objectNameDeleteSecondTime = prepareObjects(bucketName, 10,
-        bucketName + "_objects_1/0/", bucketName + "dalalaTa");
-    objectNameDeleteSecondTime.addAll(prepareObjects(bucketName, 5,
-        bucketName + "_objects_1/1/", bucketName + "dalalaTa"));
-    objectNameDeleteSecondTime.addAll(prepareObjects(bucketName, 2,
-        bucketName + "_objects_1/0", bucketName + "dalalaTa"));
-    objectNameDeleteSecondTime.addAll(prepareObjects(bucketName, 1,
-        bucketName + "_objects_1/1", bucketName + "dalalaTa"));
+    List<String> objectNameDeleteSecondTime = prepareObjects(bucketName, 10, bucketName + "_objects_1/0/", bucketName + "dalalaTa");
+    objectNameDeleteSecondTime.addAll(prepareObjects(bucketName, 5, bucketName + "_objects_1/1/", bucketName + "dalalaTa"));
+    objectNameDeleteSecondTime.addAll(prepareObjects(bucketName, 2, bucketName + "_objects_1/0", bucketName + "dalalaTa"));
+    objectNameDeleteSecondTime.addAll(prepareObjects(bucketName, 1, bucketName + "_objects_1/1", bucketName + "dalalaTa"));
 
-    List<Map<String, Object>> failList = fdsClient.deleteObjects(bucketName,
-        bucketName + "_objects_0/");
+    List<Map<String, Object>> failList = fdsClient.deleteObjects(bucketName, bucketName + "_objects_0/");
 
     Assert.assertTrue(failList.isEmpty());
 
     assertObjectsNotExist(bucketName, objectNameList);
 
-    assertObjectsExistWithContentPrefix(bucketName, objectNameDeleteSecondTime,
-        bucketName + "dalalaTa");
+    assertObjectsExistWithContentPrefix(bucketName, objectNameDeleteSecondTime, bucketName + "dalalaTa");
 
     failList = fdsClient.deleteObjects(bucketName, bucketName + "_objects_1/");
     Assert.assertTrue(failList.isEmpty());
@@ -364,31 +336,14 @@ public class TestGalaxyFDSClient {
     assertObjectsNotExist(bucketName, objectNameDeleteSecondTime);
   }
 
-  @Test(timeout = 120 * 1000)
-  public void testListObjWithPrefixOfRoot() throws Exception {
+  @Test(timeout = 120 * 1000) public void testListObjWithPrefixOfRoot() throws Exception {
     final String testContent = "test_content";
-    final String[] objectNames = {
-        "bar/bash",
-        "bar/bang",
-        "bar/bang/bang",
-        "bar/baz",
-        "bee",
-        "boo",
-        "bang/bang",
-    };
-    final String[] expectedObjects = {
-        "bee",
-        "boo",
-    };
-    final String[] expectedCommonPrefixes = {
-        "bar/",
-        "bang/",
-    };
+    final String[] objectNames = { "bar/bash", "bar/bang", "bar/bang/bang", "bar/baz", "bee", "boo", "bang/bang", };
+    final String[] expectedObjects = { "bee", "boo", };
+    final String[] expectedCommonPrefixes = { "bar/", "bang/", };
 
     for (String objectName : objectNames) {
-      fdsClient.putObject(bucketName, objectName,
-          new ByteArrayInputStream(testContent.getBytes()),
-          new FDSObjectMetadata());
+      fdsClient.putObject(bucketName, objectName, new ByteArrayInputStream(testContent.getBytes()), new FDSObjectMetadata());
     }
 
     FDSObjectListing fdsObjectListing = fdsClient.listObjects(bucketName);
@@ -404,22 +359,12 @@ public class TestGalaxyFDSClient {
     }
   }
 
-  @Test(timeout = 120 * 1000)
-  public void testListObjOfRootNoDelimiter() throws Exception {
+  @Test(timeout = 120 * 1000) public void testListObjOfRootNoDelimiter() throws Exception {
     final String testContent = "test_content";
-    final String[] objectNames = {
-        "foo/bar/bang",
-        "foo/bar/baz",
-        "foo/bar/bang/bang",
-        "foo/bee",
-        "foo/bar/bash",
-        "foo/boo",
-    };
+    final String[] objectNames = { "foo/bar/bang", "foo/bar/baz", "foo/bar/bang/bang", "foo/bee", "foo/bar/bash", "foo/boo", };
 
     for (String objectName : objectNames) {
-      fdsClient.putObject(bucketName, objectName,
-          new ByteArrayInputStream(testContent.getBytes()),
-          new FDSObjectMetadata());
+      fdsClient.putObject(bucketName, objectName, new ByteArrayInputStream(testContent.getBytes()), new FDSObjectMetadata());
     }
 
     // set delimiter to empty to get all objects
@@ -433,31 +378,14 @@ public class TestGalaxyFDSClient {
     }
   }
 
-  @Test(timeout = 120 * 1000)
-  public void testListObjectsWithPref() throws Exception {
+  @Test(timeout = 120 * 1000) public void testListObjectsWithPref() throws Exception {
     final String testContent = "test_content";
-    final String[] objectNames = {
-        "foo/bar/bash",
-        "foo/bar/bang",
-        "foo/bar/bang/bang",
-        "foo/bar/baz",
-        "foo/bee",
-        "foo/boo",
-        "foo/bang/bang",
-    };
-    final String[] expectedObjects = {
-        "foo/bee",
-        "foo/boo",
-    };
-    final String[] expectedCommonPrefixes = {
-        "foo/bar/",
-        "foo/bang/",
-    };
+    final String[] objectNames = { "foo/bar/bash", "foo/bar/bang", "foo/bar/bang/bang", "foo/bar/baz", "foo/bee", "foo/boo", "foo/bang/bang", };
+    final String[] expectedObjects = { "foo/bee", "foo/boo", };
+    final String[] expectedCommonPrefixes = { "foo/bar/", "foo/bang/", };
 
     for (String objectName : objectNames) {
-      fdsClient.putObject(bucketName, objectName,
-          new ByteArrayInputStream(testContent.getBytes()),
-          new FDSObjectMetadata());
+      fdsClient.putObject(bucketName, objectName, new ByteArrayInputStream(testContent.getBytes()), new FDSObjectMetadata());
     }
 
     FDSObjectListing fdsObjectListing = fdsClient.listObjects(bucketName, "foo/");
@@ -473,32 +401,15 @@ public class TestGalaxyFDSClient {
     }
   }
 
-  @Test(timeout = 120 * 1000)
-  public void testListObjWithPrefAndDeli() throws Exception {
+  @Test(timeout = 120 * 1000) public void testListObjWithPrefAndDeli() throws Exception {
     // test list objects with prefix and special delimiter
     final String testContent = "test_content";
-    final String[] objectNames = {
-        "foo-bar-bash",
-        "foo-bar-bang",
-        "foo-bar-bang-bang",
-        "foo-bar-baz",
-        "foo-bee",
-        "foo-boo",
-        "foo-bang-bang",
-    };
-    final String[] expectedObjects = {
-        "foo-bee",
-        "foo-boo",
-    };
-    final String[] expectedCommonPrefixes = {
-        "foo-bar-",
-        "foo-bang-",
-    };
+    final String[] objectNames = { "foo-bar-bash", "foo-bar-bang", "foo-bar-bang-bang", "foo-bar-baz", "foo-bee", "foo-boo", "foo-bang-bang", };
+    final String[] expectedObjects = { "foo-bee", "foo-boo", };
+    final String[] expectedCommonPrefixes = { "foo-bar-", "foo-bang-", };
 
     for (String objectName : objectNames) {
-      fdsClient.putObject(bucketName, objectName,
-          new ByteArrayInputStream(testContent.getBytes()),
-          new FDSObjectMetadata());
+      fdsClient.putObject(bucketName, objectName, new ByteArrayInputStream(testContent.getBytes()), new FDSObjectMetadata());
     }
 
     fdsClient.setDelimiter("-");
@@ -515,33 +426,14 @@ public class TestGalaxyFDSClient {
     }
   }
 
-  @Test(timeout = 120 * 1000)
-  public void testListObjWithPrefNoDeli() throws Exception {
+  @Test(timeout = 120 * 1000) public void testListObjWithPrefNoDeli() throws Exception {
     final String testContent = "test_content";
-    final String[] objectNames = {
-        "foo/bar/bash",
-        "foo/bar/bang",
-        "foo/bar/bang/bang",
-        "foo/bar/baz",
-        "foo/bee",
-        "for/bee",
-        "bar/boo",
-        "bar/bang/bang",
-    };
+    final String[] objectNames = { "foo/bar/bash", "foo/bar/bang", "foo/bar/bang/bang", "foo/bar/baz", "foo/bee", "for/bee", "bar/boo", "bar/bang/bang", };
 
-    final String[] expectedObjectNames = {
-        "foo/bar/bash",
-        "foo/bar/bang",
-        "foo/bar/bang/bang",
-        "foo/bar/baz",
-        "foo/bee",
-        "for/bee",
-    };
+    final String[] expectedObjectNames = { "foo/bar/bash", "foo/bar/bang", "foo/bar/bang/bang", "foo/bar/baz", "foo/bee", "for/bee", };
 
     for (String objectName : objectNames) {
-      fdsClient.putObject(bucketName, objectName,
-          new ByteArrayInputStream(testContent.getBytes()),
-          new FDSObjectMetadata());
+      fdsClient.putObject(bucketName, objectName, new ByteArrayInputStream(testContent.getBytes()), new FDSObjectMetadata());
     }
 
     fdsClient.setDelimiter("");
@@ -554,8 +446,7 @@ public class TestGalaxyFDSClient {
     assertEquals(0, fdsObjectListing.getCommonPrefixes().size());
   }
 
-  @Test(timeout = 120 * 1000)
-  public void testListObjectsOfEmptyBucket() throws Exception {
+  @Test(timeout = 120 * 1000) public void testListObjectsOfEmptyBucket() throws Exception {
     String prefix = "";
     fdsClient.setDelimiter("/");
     FDSObjectListing listing = fdsClient.listObjects(bucketName, prefix);
@@ -570,9 +461,7 @@ public class TestGalaxyFDSClient {
 
   // Because there a bucketCache in server side, GalaxyFDSClientException.class is not always be thrown out
   // TODO: Add a magic string into ut's bucket name, and then to judge from server whether this magic string appears
-  @Ignore
-  @Test(expected = GalaxyFDSClientException.class, timeout = 120 * 1000)
-  public void testListObjWithPrefNoBucket() throws Exception {
+  @Ignore @Test(expected = GalaxyFDSClientException.class, timeout = 120 * 1000) public void testListObjWithPrefNoBucket() throws Exception {
     deleteObjectsAndBucket(fdsClient, bucketName);
     bucket2DeleteList.remove(bucketName);
     boolean b = fdsClient.doesBucketExist(bucketName);
@@ -581,25 +470,21 @@ public class TestGalaxyFDSClient {
     assertNull(fdsObjectListing);
   }
 
-  @Test(timeout = 120 * 1000)
-  public void testListObjWithPrefEmpBucket() throws Exception {
+  @Test(timeout = 120 * 1000) public void testListObjWithPrefEmpBucket() throws Exception {
     FDSObjectListing fdsObjectListing = fdsClient.listObjects(bucketName, "foo/");
     assertNotNull(fdsObjectListing);
     assertEquals(0, fdsObjectListing.getObjectSummaries().size());
     assertEquals(0, fdsObjectListing.getCommonPrefixes().size());
   }
 
-  @Test(timeout = 120 * 1000)
-  public void testRenameObject() throws Exception {
+  @Test(timeout = 120 * 1000) public void testRenameObject() throws Exception {
     String srcObjectName = "testRenameObject_srcObject";
     String dstObjectName = "testRenameObject_dstObject";
     String objectContent = "This is a test FDS object";
 
     assertTrue(!fdsClient.doesObjectExist(bucketName, srcObjectName));
 
-    fdsClient.putObject(bucketName, srcObjectName,
-        new ByteArrayInputStream(objectContent.getBytes()),
-        new FDSObjectMetadata());
+    fdsClient.putObject(bucketName, srcObjectName, new ByteArrayInputStream(objectContent.getBytes()), new FDSObjectMetadata());
     assertTrue(fdsClient.doesObjectExist(bucketName, srcObjectName));
 
     fdsClient.renameObject(bucketName, srcObjectName, dstObjectName);
@@ -609,16 +494,13 @@ public class TestGalaxyFDSClient {
     assertEquals(objectContent, streamToString(object.getObjectContent()));
   }
 
-  @Test(timeout = 120 * 1000)
-  public void testOpenWithPosition() throws Exception {
+  @Test(timeout = 120 * 1000) public void testOpenWithPosition() throws Exception {
     String ObjectName = "testOpenWithPosition_Object";
     String objectContent = "TestSkipRead";
 
     assertTrue(!fdsClient.doesObjectExist(bucketName, ObjectName));
 
-    fdsClient.putObject(bucketName, ObjectName,
-        new ByteArrayInputStream(objectContent.getBytes()),
-        new FDSObjectMetadata());
+    fdsClient.putObject(bucketName, ObjectName, new ByteArrayInputStream(objectContent.getBytes()), new FDSObjectMetadata());
     assertTrue(fdsClient.doesObjectExist(bucketName, ObjectName));
     final long SKIPPED = 4;
     FDSObject object = fdsClient.getObject(bucketName, ObjectName, SKIPPED);
@@ -633,16 +515,13 @@ public class TestGalaxyFDSClient {
     }
   }
 
-  @Test(expected = Exception.class, timeout = 120 * 1000)
-  public void testOpenWithPositionException() throws Exception {
+  @Test(expected = Exception.class, timeout = 120 * 1000) public void testOpenWithPositionException() throws Exception {
     String ObjectName = "testOpenWithPositionException_Object";
     String objectContent = "TestSkipRead";
 
     assertTrue(!fdsClient.doesObjectExist(bucketName, ObjectName));
 
-    fdsClient.putObject(bucketName, ObjectName,
-        new ByteArrayInputStream(objectContent.getBytes()),
-        new FDSObjectMetadata());
+    fdsClient.putObject(bucketName, ObjectName, new ByteArrayInputStream(objectContent.getBytes()), new FDSObjectMetadata());
     assertTrue(fdsClient.doesObjectExist(bucketName, ObjectName));
     final long SKIPPED = objectContent.length() + 1;
     fdsClient.getObject(bucketName, ObjectName, SKIPPED);
@@ -654,17 +533,14 @@ public class TestGalaxyFDSClient {
     return writer.toString();
   }
 
-  @Test(timeout = 120 * 1000)
-  public void testObjectMetadata() throws Exception {
+  @Test(timeout = 120 * 1000) public void testObjectMetadata() throws Exception {
     String objectName = "testObject";
     String objectContent = "Hello world!!";
     FDSObjectMetadata metadata = new FDSObjectMetadata();
     metadata.setContentMD5("1d94dd7dfd050410185a535b9575e184");
     metadata.setCacheControl("max-age=12344343");
-    metadata.addUserMetadata(FDSObjectMetadata.USER_DEFINED_META_PREFIX
-        + "test", "test-meta-data");
-    PutObjectResult result = fdsClient.putObject(bucketName, objectName,
-        new ByteArrayInputStream(objectContent.getBytes()), metadata);
+    metadata.addUserMetadata(FDSObjectMetadata.USER_DEFINED_META_PREFIX + "test", "test-meta-data");
+    PutObjectResult result = fdsClient.putObject(bucketName, objectName, new ByteArrayInputStream(objectContent.getBytes()), metadata);
     Assert.assertNotNull(result);
 
     FDSObject object = fdsClient.getObject(bucketName, objectName);
@@ -678,21 +554,17 @@ public class TestGalaxyFDSClient {
     }
   }
 
-  @Test(timeout = 120 * 1000)
-  public void testGetObjectMetadata() throws Exception {
+  @Test(timeout = 120 * 1000) public void testGetObjectMetadata() throws Exception {
     String objectName = "testObject";
     String objectContent = "Hello world!!!!!";
     FDSObjectMetadata metadata = new FDSObjectMetadata();
     metadata.setContentMD5("3661825bfbc13f12bb9a467102fded35");
     metadata.setCacheControl("max-age=12344343");
-    metadata.addUserMetadata(FDSObjectMetadata.USER_DEFINED_META_PREFIX
-        + "test", "test-meta-data");
-    PutObjectResult result = fdsClient.putObject(bucketName, objectName,
-        new ByteArrayInputStream(objectContent.getBytes()), metadata);
+    metadata.addUserMetadata(FDSObjectMetadata.USER_DEFINED_META_PREFIX + "test", "test-meta-data");
+    PutObjectResult result = fdsClient.putObject(bucketName, objectName, new ByteArrayInputStream(objectContent.getBytes()), metadata);
     Assert.assertNotNull(result);
 
-    FDSObjectMetadata objectMetadata = fdsClient.getObjectMetadata(
-        bucketName, objectName);
+    FDSObjectMetadata objectMetadata = fdsClient.getObjectMetadata(bucketName, objectName);
     Assert.assertNotNull(objectMetadata);
     for (Map.Entry<String, String> e : metadata.getRawMetadata().entrySet()) {
       String value = objectMetadata.getRawMetadata().get(e.getKey());
@@ -701,36 +573,28 @@ public class TestGalaxyFDSClient {
     }
   }
 
-  @Test(timeout = 120 * 1000)
-  public void testGetObjMetaByPresignUrl() throws Exception {
+  @Test(timeout = 120 * 1000) public void testGetObjMetaByPresignUrl() throws Exception {
     String objectName = "testObject";
     String objectContent = "Hello world!!!!!";
 
     FDSObjectMetadata metadata = new FDSObjectMetadata();
     metadata.setContentMD5("3661825bfbc13f12bb9a467102fded35");
     metadata.setCacheControl("max-age=12344343");
-    metadata.addUserMetadata(FDSObjectMetadata.USER_DEFINED_META_PREFIX
-        + "test", "test-meta-data");
-    PutObjectResult result = fdsClient.putObject(bucketName, objectName,
-        new ByteArrayInputStream(objectContent.getBytes()), metadata);
+    metadata.addUserMetadata(FDSObjectMetadata.USER_DEFINED_META_PREFIX + "test", "test-meta-data");
+    PutObjectResult result = fdsClient.putObject(bucketName, objectName, new ByteArrayInputStream(objectContent.getBytes()), metadata);
     Assert.assertNotNull(result);
 
-    URI uri = fdsClient.generatePresignedUri(bucketName, objectName,
-        SubResource.METADATA, new Date(new Date().getTime() * 10),
-        HttpMethod.GET);
-    HttpURLConnection urlConnection = (HttpURLConnection) uri.toURL()
-        .openConnection();
+    URI uri = fdsClient.generatePresignedUri(bucketName, objectName, SubResource.METADATA, new Date(new Date().getTime() * 10), HttpMethod.GET);
+    HttpURLConnection urlConnection = (HttpURLConnection) uri.toURL().openConnection();
     Assert.assertEquals(200, urlConnection.getResponseCode());
     urlConnection.disconnect();
   }
 
-  @Test(timeout = 120 * 1000)
-  public void testGetObjectAcl() throws Exception {
+  @Test(timeout = 120 * 1000) public void testGetObjectAcl() throws Exception {
 
     String objectName = "testObject";
     String objectContent = "Hello world!!";
-    PutObjectResult result = fdsClient.putObject(bucketName, objectName,
-        new ByteArrayInputStream(objectContent.getBytes()), null);
+    PutObjectResult result = fdsClient.putObject(bucketName, objectName, new ByteArrayInputStream(objectContent.getBytes()), null);
     Assert.assertNotNull(result);
 
     AccessControlList acl = fdsClient.getObjectAcl(bucketName, objectName);
@@ -738,13 +602,11 @@ public class TestGalaxyFDSClient {
     Assert.assertEquals(1, acl.getGrantList().size());
   }
 
-  @Test(timeout = 120 * 1000)
-  public void testBucketReadObjectsAcl() throws Exception {
+  @Test(timeout = 120 * 1000) public void testBucketReadObjectsAcl() throws Exception {
     String objectName = "testObject";
     String objectContent = "Hello world!!";
 
-    PutObjectResult result = fdsClient.putObject(bucketName, objectName,
-        new ByteArrayInputStream(objectContent.getBytes()), null);
+    PutObjectResult result = fdsClient.putObject(bucketName, objectName, new ByteArrayInputStream(objectContent.getBytes()), null);
     Assert.assertNotNull(result);
 
     try {
@@ -754,8 +616,7 @@ public class TestGalaxyFDSClient {
       Assert.assertTrue(e.toString().contains("Access Denied"));
     }
 
-    AccessControlList.Grant grant = new AccessControlList.Grant(accessIdAcl,
-        AccessControlList.Permission.FULL_CONTROL);
+    AccessControlList.Grant grant = new AccessControlList.Grant(accessIdAcl, AccessControlList.Permission.FULL_CONTROL);
     AccessControlList acl = new AccessControlList();
     acl.addGrant(grant);
     fdsClient.setBucketAcl(bucketName, acl);
@@ -764,26 +625,22 @@ public class TestGalaxyFDSClient {
     Assert.assertEquals(objectContent, streamToString(fdsObject.getObjectContent()));
   }
 
-  @Test(timeout = 120 * 1000)
-  public void testPostObject() throws Exception {
+  @Test(timeout = 120 * 1000) public void testPostObject() throws Exception {
     String content = "Hello world!!!!!";
-    PutObjectResult result = fdsClient.postObject(bucketName,
-        new ByteArrayInputStream(content.getBytes()), null);
+    PutObjectResult result = fdsClient.postObject(bucketName, new ByteArrayInputStream(content.getBytes()), null);
     Assert.assertNotNull(result);
     Assert.assertEquals(bucketName, result.getBucketName());
     Assert.assertNotNull(result.getSignature());
   }
 
-  @Test(timeout = 120 * 1000)
-  public void testSetWriteWithSSO() throws Exception {
+  @Test(timeout = 120 * 1000) public void testSetWriteWithSSO() throws Exception {
     AccessControlList accessControlList = new AccessControlList();
-    AccessControlList.Grant grant = new AccessControlList.Grant(accessIdAcl,
-        AccessControlList.Permission.SSO_WRITE);
+    AccessControlList.Grant grant = new AccessControlList.Grant(accessIdAcl, AccessControlList.Permission.SSO_WRITE);
     accessControlList.addGrant(grant);
     fdsClient.setBucketAcl(bucketName, accessControlList);
     AccessControlList accessControlListGot = fdsClient.getBucketAcl(bucketName);
     boolean grantSet = false;
-    for (AccessControlList.Grant g: accessControlListGot.getGrantList()) {
+    for (AccessControlList.Grant g : accessControlListGot.getGrantList()) {
       if (g.getGranteeId().equals(accessIdAcl)) {
         Assert.assertEquals(g.toString(), grant.toString());
         grantSet = true;
@@ -792,19 +649,15 @@ public class TestGalaxyFDSClient {
     Assert.assertTrue(grantSet);
   }
 
-  @Test(timeout = 120 * 1000)
-  public void testPutObjectRequest() throws Exception{
+  @Test(timeout = 120 * 1000) public void testPutObjectRequest() throws Exception {
     final String objectName = "testPutObjectRequest_object";
     final String testContent = "test_content";
     assertTrue(!fdsClient.doesObjectExist(bucketName, objectName));
 
     ProgressListener listener = new ProgressListener();
 
-    fdsClient.putObject(new FDSPutObjectRequest()
-      .withBucketName(bucketName)
-      .withObjectName(objectName)
-      .withInputStream(new ByteArrayInputStream(testContent.getBytes()), testContent.length())
-      .withMetadata(new FDSObjectMetadata())
+    fdsClient.putObject(new FDSPutObjectRequest().withBucketName(bucketName).withObjectName(objectName)
+      .withInputStream(new ByteArrayInputStream(testContent.getBytes()), testContent.length()).withMetadata(new FDSObjectMetadata())
       .withProgressListener(listener));
 
     assertEquals(listener.getTransferred(), testContent.getBytes().length);
@@ -816,26 +669,22 @@ public class TestGalaxyFDSClient {
     assertEquals(testContent, content);
 
     // test request with null members
-    String objectName1 = objectName+"1";
-    fdsClient.putObject(new FDSPutObjectRequest()
-      .withBucketName(bucketName)
-      .withObjectName(objectName1)
+    String objectName1 = objectName + "1";
+    fdsClient.putObject(new FDSPutObjectRequest().withBucketName(bucketName).withObjectName(objectName1)
       .withInputStream(new ByteArrayInputStream(testContent.getBytes()), testContent.length()));
     FDSObject fdsObject1 = fdsClient.getObject(bucketName, objectName1);
     String content1 = streamToString(fdsObject1.getObjectContent());
     assertEquals(testContent, content1);
   }
 
-  @Test
-  public void testSlowPutObjectRequest() throws Exception{
+  @Test public void testSlowPutObjectRequest() throws Exception {
     final String objectName = "testPutSlow_object";
     assertTrue(!fdsClient.doesObjectExist(bucketName, objectName));
 
-    final long testLength = 8192*4;
+    final long testLength = 8192 * 4;
 
-    ProgressListener listener = new ProgressListener(){
-      @Override
-      public void onProgress(long transferred, long total){
+    ProgressListener listener = new ProgressListener() {
+      @Override public void onProgress(long transferred, long total) {
         super.onProgress(transferred, total);
         System.out.printf("%d : %d\n", transferred, total);
       }
@@ -843,27 +692,22 @@ public class TestGalaxyFDSClient {
 
     InputStream slowStream = new InputStream() {
       private long len = 0;
-      @Override
-      public int read() throws IOException {
-        try{
+
+      @Override public int read() throws IOException {
+        try {
           Thread.sleep(1);
-        }
-        catch (Exception e){
+        } catch (Exception e) {
         }
         len++;
-        if(len > testLength ){
+        if (len > testLength) {
           return -1;
         }
-        return (int)'a';
+        return (int) 'a';
       }
     };
 
-    fdsClient.putObject(new FDSPutObjectRequest()
-            .withBucketName(bucketName)
-            .withObjectName(objectName)
-            .withInputStream(slowStream, testLength)
-            .withMetadata(new FDSObjectMetadata())
-            .withProgressListener(listener));
+    fdsClient.putObject(new FDSPutObjectRequest().withBucketName(bucketName).withObjectName(objectName).withInputStream(slowStream, testLength)
+      .withMetadata(new FDSObjectMetadata()).withProgressListener(listener));
 
     assertEquals(listener.getTransferred(), testLength);
     assertEquals(listener.getTotal(), testLength);
@@ -873,8 +717,8 @@ public class TestGalaxyFDSClient {
     assertEquals(fdsObject.getObjectMetadata().getContentLength(), testLength);
   }
 
-//  @Test
-  public void testPutHugeFile() throws Exception{
+  //  @Test
+  public void testPutHugeFile() throws Exception {
     final String objectName = "testPutHugeFile_object";
     // edit it as your file path
     final String filePath = "/home/huge.txt";
@@ -883,23 +727,18 @@ public class TestGalaxyFDSClient {
     long totalSize = 100 * 1024 * 1024;
     long totalTime = totalSize / limitBandwidth - 5;
 
-    ProgressListener listener = new ProgressListener(){
-      @Override
-      public void onProgress(long transferred, long total) {
+    ProgressListener listener = new ProgressListener() {
+      @Override public void onProgress(long transferred, long total) {
         super.onProgress(transferred, total);
         System.out.printf("%d : %d\n", transferred, total);
       }
     };
     File file = new File(filePath);
 
-    fdsClient.putObject(new FDSPutObjectRequest()
-      .withBucketName(bucketName)
-      .withObjectName(objectName)
-      .withFile(file)
-      .withMetadata(new FDSObjectMetadata())
+    fdsClient.putObject(new FDSPutObjectRequest().withBucketName(bucketName).withObjectName(objectName).withFile(file).withMetadata(new FDSObjectMetadata())
       .withProgressListener(listener));
-    long uploadTime= System.currentTimeMillis();
-    assertTrue((uploadTime - startTime) / 1000 >= totalTime );
+    long uploadTime = System.currentTimeMillis();
+    assertTrue((uploadTime - startTime) / 1000 >= totalTime);
 
     assertEquals(listener.getTransferred(), file.length());
     assertEquals(listener.getTotal(), file.length());
@@ -912,25 +751,24 @@ public class TestGalaxyFDSClient {
     String s2 = streamToString(fdsObject.getObjectContent());
     assertEquals(fdsObject.getObjectMetadata().getContentMD5(), DigestUtils.md5Hex(new FileInputStream(file)));
     long downloadTime = System.currentTimeMillis();
-    assertTrue((downloadTime - uploadTime) / 1000 >= totalTime );
-    assertEquals(s1,s2);
+    assertTrue((downloadTime - uploadTime) / 1000 >= totalTime);
+    assertEquals(s1, s2);
   }
 
-//  @Test
+  //  @Test
   public void testAbortInputStream() throws Exception {
     final String objectName = "testAbortInputStream_object";
     final String filePath = "/home/300M.bin";
     File file = new File(filePath);
     fdsClient.putObject(bucketName, objectName, file);
     FDSObject object = null;
-    for(int i = 0; i < 30; ++i) {
+    for (int i = 0; i < 30; ++i) {
       object = fdsClient.getObject(bucketName, objectName);
       object.getObjectContent().close();
     }
   }
 
-  @Test(timeout = 120 * 1000)
-  public void testMultipartUpload() throws Exception {
+  @Test(timeout = 120 * 1000) public void testMultipartUpload() throws Exception {
     final String objectName = "multipart_object";
     int partSize = 5 * 1024 * 1024;
     int totalParts = 11;
@@ -942,15 +780,13 @@ public class TestGalaxyFDSClient {
 
     InitiateMultipartUploadRequest request = new InitiateMultipartUploadRequest(bucketName, objectName);
 
-    final InitMultipartUploadResult result = fdsClient.initMultipartUpload(
-            request);
+    final InitMultipartUploadResult result = fdsClient.initMultipartUpload(request);
     Assert.assertNotNull(result);
     String uploadId = result.getUploadId();
 
     UploadPartResult[] uploadPartResults = new UploadPartResult[totalParts];
     for (int i = 0; i < totalParts; i++) {
-      uploadPartResults[i] = fdsClient.uploadPart(bucketName,
-              objectName, uploadId, i + 1, new ByteArrayInputStream(partDataArray[i]));
+      uploadPartResults[i] = fdsClient.uploadPart(bucketName, objectName, uploadId, i + 1, new ByteArrayInputStream(partDataArray[i]));
     }
 
     FDSObjectMetadata metadata = new FDSObjectMetadata();
@@ -958,8 +794,7 @@ public class TestGalaxyFDSClient {
     metadata.setContentType("video/mp4");
     UploadPartResultList uploadPartResultList = new UploadPartResultList();
     uploadPartResultList.setUploadPartResultList(Arrays.asList(uploadPartResults));
-    fdsClient.completeMultipartUpload(bucketName, objectName, uploadId, metadata,
-            uploadPartResultList);
+    fdsClient.completeMultipartUpload(bucketName, objectName, uploadId, metadata, uploadPartResultList);
 
     // read and verify
     FDSObject object = fdsClient.getObject(bucketName, objectName);
@@ -986,8 +821,7 @@ public class TestGalaxyFDSClient {
     System.out.println("压缩之后大小: " + after.length);
   }
 
-  @Test(timeout = 120 * 1000)
-  @Ignore
+  @Test(timeout = 120 * 1000) @Ignore
   // Because copyObject require HDFS backends,
   // but backends of test environment always change between HDFS\S3\KS3, So Ignore this test case
   public void testCopyObject() throws Exception {
@@ -1011,24 +845,21 @@ public class TestGalaxyFDSClient {
     assertTrue(fdsClient.doesObjectExist(copiedBucketName, copiedObjectName));
   }
 
-  @Test(timeout = 120 * 1000)
-  @Ignore
-  public void testSetLifecycle() throws Exception {
+  @Test(timeout = 120 * 1000) @Ignore public void testSetLifecycle() throws Exception {
     LifecycleConfig.ActionBase expiration = LifecycleConfig.Expiration.fromJson("{\"days\": 30}");
 
     LifecycleConfig.Rule rule = new LifecycleConfig.Rule();
     rule.setId("1");
     rule.setEnabled(false);
     rule.setPrefix("img/");
-    rule.setActions(Lists.newArrayList(expiration));
+    rule.setActions(Arrays.asList(expiration));
 
     LifecycleConfig lifecycleConfig = new LifecycleConfig();
     lifecycleConfig.addOrUpdateRule(rule);
     fdsClient.updateLifecycleConfig(bucketName, lifecycleConfig);
   }
 
-  @Test(timeout = 120 * 1000)
-  public void testCORSCongifuration() throws Exception {
+  @Test(timeout = 120 * 1000) public void testCORSCongifuration() throws Exception {
     CORSRule rule1 = new CORSRule();
     rule1.setAllowedOrigin("*");
 
