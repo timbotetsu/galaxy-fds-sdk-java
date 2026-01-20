@@ -1,12 +1,12 @@
 package com.xiaomi.infra.galaxy.fds.model;
 
+import com.xiaomi.infra.galaxy.fds.JacksonUtils;
 import java.util.ArrayList;
 import java.util.List;
-
 import org.apache.commons.lang3.StringUtils;
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
+import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.node.ArrayNode;
+import tools.jackson.databind.node.ObjectNode;
 
 public class WebsiteConfig {
   private static final String INDEX_DOCUMENT = "indexDocument";
@@ -67,23 +67,24 @@ public class WebsiteConfig {
     return null;
   }
 
-  public static WebsiteConfig fromJson(String json) throws JSONException {
-    JSONObject jsonObject = new JSONObject(json);
+  public static WebsiteConfig fromJson(String json) {
+    JsonMapper mapper = JacksonUtils.mapper();
+    ObjectNode objectNode = mapper.readValue(json, ObjectNode.class);
     WebsiteConfig config = new WebsiteConfig();
 
-    if (jsonObject.has(INDEX_DOCUMENT)) {
-      config.setIndexDocument(jsonObject.getString(INDEX_DOCUMENT));
+    if (objectNode.has(INDEX_DOCUMENT)) {
+      config.setIndexDocument(objectNode.get(INDEX_DOCUMENT).asString());
     }
 
-    if (jsonObject.has(ERROR_DOCUMENT)) {
-      config.setErrorDocument(jsonObject.getString(ERROR_DOCUMENT));
+    if (objectNode.has(ERROR_DOCUMENT)) {
+      config.setErrorDocument(objectNode.get(ERROR_DOCUMENT).asString());
     }
 
-    if (jsonObject.has(REDIRECT_RULE)) {
-      JSONArray redirectRulesArray = jsonObject.getJSONArray(REDIRECT_RULE);
-      List<RedirectRule> redirectRules = new ArrayList<RedirectRule>();
-      for (int i = 0; i < redirectRulesArray.length(); i++) {
-        redirectRules.add(RedirectRule.fromJson(redirectRulesArray.getString(i)));
+    if (objectNode.has(REDIRECT_RULE)) {
+      ArrayNode redirectRulesArray = objectNode.withArray(REDIRECT_RULE);
+      List<RedirectRule> redirectRules = new ArrayList<>();
+      for (int i = 0; i < redirectRulesArray.size(); i++) {
+        redirectRules.add(RedirectRule.fromJson(redirectRulesArray.get(i).toString()));
       }
       config.setRedirectRules(redirectRules);
     }
@@ -91,25 +92,25 @@ public class WebsiteConfig {
     return config;
   }
 
-  public String toJson() throws JSONException {
-    JSONObject jsonObject = new JSONObject();
+  public String toJson() {
+    ObjectNode objectNode = JacksonUtils.mapper().createObjectNode();
 
     if (StringUtils.isNotBlank(indexDocument)) {
-      jsonObject.put(INDEX_DOCUMENT, indexDocument);
+      objectNode.put(INDEX_DOCUMENT, indexDocument);
     }
 
     if (StringUtils.isNotBlank(errorDocument)) {
-      jsonObject.put(ERROR_DOCUMENT, errorDocument);
+      objectNode.put(ERROR_DOCUMENT, errorDocument);
     }
 
-    JSONArray jsonArray = new JSONArray();
+    ArrayNode arrayNode = JacksonUtils.mapper().createArrayNode();
     for (RedirectRule redirectRule : redirectRules) {
-      jsonArray.put(new JSONObject(redirectRule.toJson()));
+      arrayNode.add(redirectRule.toJson());
     }
-    if (jsonArray.length() > 0) {
-      jsonObject.put(REDIRECT_RULE, jsonArray);
+    if (!arrayNode.isEmpty()) {
+      objectNode.set(REDIRECT_RULE, arrayNode);
     }
-    return jsonObject.toString();
+    return objectNode.toString();
   }
 
   public static class RedirectRule {
@@ -145,43 +146,44 @@ public class WebsiteConfig {
       return replaceKeyPrefixWith;
     }
 
-    public static RedirectRule fromJson(String json) throws JSONException {
-      JSONObject jsonObject = new JSONObject(json);
+    public static RedirectRule fromJson(String json) {
+      JsonMapper mapper = JacksonUtils.mapper();
+      ObjectNode objectNode = mapper.readValue(json, ObjectNode.class);
       RedirectRule rule = new RedirectRule();
 
-      String keyPrefixEquals = jsonObject.getString(KEY_PREFIX_EQUALS);
+      String keyPrefixEquals = objectNode.get(KEY_PREFIX_EQUALS).asString();
       if (StringUtils.isBlank(keyPrefixEquals)) {
-        throw new JSONException("KeyPrefixEquals should not be null or empty");
+        throw new RuntimeException("KeyPrefixEquals should not be null or empty");
       }
       rule.setKeyPrefixEquals(keyPrefixEquals);
 
-      if (jsonObject.has(REPLACE_KEY_WITH)) {
-        rule.setReplaceKeyWith(jsonObject.getString(REPLACE_KEY_WITH));
+      if (objectNode.has(REPLACE_KEY_WITH)) {
+        rule.setReplaceKeyWith(objectNode.get(REPLACE_KEY_WITH).asString());
       }
 
-      if (jsonObject.has(REPLACE_KEY_PREFIX_WITH)) {
-        rule.setReplaceKeyPrefixWith(jsonObject.getString(REPLACE_KEY_PREFIX_WITH));
+      if (objectNode.has(REPLACE_KEY_PREFIX_WITH)) {
+        rule.setReplaceKeyPrefixWith(objectNode.get(REPLACE_KEY_PREFIX_WITH).asString());
       }
 
       return rule;
     }
 
-    public String toJson() throws JSONException {
-      JSONObject jsonObject = new JSONObject();
+    public String toJson() {
+      ObjectNode objectNode = JacksonUtils.mapper().createObjectNode();
       if (StringUtils.isNotBlank(keyPrefixEquals)) {
-        jsonObject.put(KEY_PREFIX_EQUALS, keyPrefixEquals);
+        objectNode.put(KEY_PREFIX_EQUALS, keyPrefixEquals);
       } else {
-        throw new JSONException("keyPrefixEquals should not be null or empty.");
+        throw new RuntimeException("keyPrefixEquals should not be null or empty.");
       }
 
       if (StringUtils.isNotBlank(replaceKeyPrefixWith)) {
-        jsonObject.put(REPLACE_KEY_PREFIX_WITH, replaceKeyPrefixWith);
+        objectNode.put(REPLACE_KEY_PREFIX_WITH, replaceKeyPrefixWith);
       }
 
       if (StringUtils.isNotBlank(replaceKeyWith)) {
-        jsonObject.put(REPLACE_KEY_WITH, replaceKeyWith);
+        objectNode.put(REPLACE_KEY_WITH, replaceKeyWith);
       }
-      return jsonObject.toString();
+      return objectNode.toString();
     }
   }
 }

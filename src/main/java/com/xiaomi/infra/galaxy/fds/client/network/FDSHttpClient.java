@@ -1,10 +1,8 @@
 package com.xiaomi.infra.galaxy.fds.client.network;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import com.google.gson.JsonDeserializer;
 import com.xiaomi.infra.galaxy.fds.Action;
 import com.xiaomi.infra.galaxy.fds.Common;
+import com.xiaomi.infra.galaxy.fds.JacksonUtils;
 import com.xiaomi.infra.galaxy.fds.auth.signature.SignAlgorithm;
 import com.xiaomi.infra.galaxy.fds.auth.signature.XiaomiHeader;
 import com.xiaomi.infra.galaxy.fds.client.FDSClientConfiguration;
@@ -22,11 +20,8 @@ import com.xiaomi.infra.galaxy.fds.model.HttpMethod;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.Reader;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.nio.charset.Charset;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -77,6 +72,7 @@ import org.apache.http.impl.client.HttpClients;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.apache.http.impl.conn.SystemDefaultDnsResolver;
 import org.apache.http.ssl.SSLContexts;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Copyright 2015, Xiaomi.
@@ -104,13 +100,11 @@ public class FDSHttpClient {
   private final String KERBEROS_AUTHORIZATION_PATH = "/fds-kerberos-auth";
 
   public static SignAlgorithm SIGN_ALGORITHM = SignAlgorithm.HmacSHA1;
-  private static final ThreadLocal<SimpleDateFormat> DATE_FORMAT = new ThreadLocal<SimpleDateFormat>() {
-    @Override protected SimpleDateFormat initialValue() {
-      SimpleDateFormat format = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss z", Locale.US);
-      format.setTimeZone(TimeZone.getTimeZone("GMT"));
-      return format;
-    }
-  };
+  private static final ThreadLocal<SimpleDateFormat> DATE_FORMAT = ThreadLocal.withInitial(() -> {
+    SimpleDateFormat format = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss z", Locale.US);
+    format.setTimeZone(TimeZone.getTimeZone("GMT"));
+    return format;
+  });
 
   public FDSHttpClient(FDSClientConfiguration fdsConfig, GalaxyFDSCredential credential, GalaxyFDSClient fdsClient) {
     this(fdsConfig, credential, fdsClient, null);
@@ -300,26 +294,14 @@ public class FDSHttpClient {
     return clientId + "_" + random.nextInt();
   }
 
-  public <T> Object processResponse(HttpResponse response, Class<T> c, String purposeStr) throws GalaxyFDSClientException {
-    return processResponse(response, c, null, purposeStr);
-  }
-
-  public <T> T processResponse(HttpResponse response, Class<T> c, JsonDeserializer<T> deserializer, String purposeStr) throws GalaxyFDSClientException {
+  public <T> T processResponse(HttpResponse response, Class<T> c, String purposeStr) throws GalaxyFDSClientException {
     HttpEntity httpEntity = response.getEntity();
     int statusCode = response.getStatusLine().getStatusCode();
     try {
       if (statusCode == HttpStatus.SC_OK || statusCode == HttpStatus.SC_ACCEPTED) {
         if (c != null) {
-          Gson gson;
-          if (deserializer != null) {
-            // TODO (shenjiaqi) create new GsonBuilder as field of this class
-            gson = new GsonBuilder().registerTypeAdapter(c, deserializer).create();
-          } else {
-            gson = new GsonBuilder().setDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS").create();
-          }
-          Reader reader = new InputStreamReader(httpEntity.getContent(), Charset.forName("UTF-8"));
-          T entityVal = gson.fromJson(reader, c);
-          return entityVal;
+          JsonMapper mapper = JacksonUtils.mapper();
+          return mapper.readValue(httpEntity.getContent(), c);
         }
         return null;
       } else {

@@ -1,14 +1,16 @@
 package com.xiaomi.infra.galaxy.fds.model;
 
+import com.xiaomi.infra.galaxy.fds.JacksonUtils;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.apache.commons.lang3.StringUtils;
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.node.ArrayNode;
+import tools.jackson.databind.node.ObjectNode;
 
 /**
  * Here is an example of bucket CORS configuration
@@ -27,6 +29,7 @@ import org.json.JSONObject;
  */
 
 public class CORSConfiguration {
+
   private static final String RULES = "rules";
 
   private final Map<String, CORSRule> ruleMap = new HashMap<String, CORSRule>();
@@ -103,27 +106,31 @@ public class CORSConfiguration {
     return this.allowOriginList;
   }
 
-  public static CORSConfiguration fromJson(String json) throws JSONException {
-    JSONObject jsonObject = new JSONObject(json);
-    CORSConfiguration corsConfiguration = new CORSConfiguration();
-    List<CORSRule> rules = new ArrayList<CORSRule>();
-    JSONArray rulesArray = jsonObject.getJSONArray(RULES);
+  public static CORSConfiguration fromJson(String json) throws JacksonException {
+    ObjectNode objectNode = JsonMapper.builderWithJackson2Defaults().build().readValue(json, ObjectNode.class);
 
-    for (int i = 0; i < rulesArray.length(); i++) {
-      rules.add(CORSRule.fromJson(rulesArray.getString(i)));
+    CORSConfiguration corsConfiguration = new CORSConfiguration();
+    List<CORSRule> rules = new ArrayList<>();
+
+    ArrayNode arrayNode = objectNode.withArray(RULES);
+
+    for (int i = 0; i < arrayNode.size(); i++) {
+      rules.add(CORSRule.fromJson(arrayNode.get(i).toString()));
     }
     corsConfiguration.setRuleList(rules);
     return corsConfiguration;
   }
 
-  public String toJson() throws JSONException {
-    JSONObject jsonObject = new JSONObject();
-    JSONArray jsonArray = new JSONArray();
+  public String toJson() {
+    JsonMapper mapper = JacksonUtils.mapper();
+    ObjectNode objectNode = mapper.createObjectNode();
+    ArrayNode arrayNode = mapper.createArrayNode();
+
     for (CORSRule rule : this.ruleMap.values()) {
-      jsonArray.put(new JSONObject(rule.toJson()));
+      arrayNode.add(rule.toJson());
     }
-    jsonObject.put(RULES, jsonArray);
-    return jsonObject.toString();
+    objectNode.set(RULES, arrayNode);
+    return objectNode.toString();
   }
 
   private String genRuleId() {
@@ -176,39 +183,35 @@ public class CORSConfiguration {
      * @return return null if copy failed
      */
     public static CORSRule copy(CORSRule rule) {
-      try {
-        return fromJson(rule.toJson());
-      } catch (JSONException e) {
-        return null;
-      }
+      return fromJson(rule.toJson());
     }
 
-    public static CORSRule fromJson(String json) throws JSONException {
-      JSONObject jsonObject = new JSONObject(json);
+    public static CORSRule fromJson(String json) {
+      ObjectNode objectNode = JacksonUtils.mapper().readValue(json, ObjectNode.class);
       CORSRule rule = new CORSRule();
-      if (jsonObject.has(ID)) {
-        rule.setId(jsonObject.getString(ID));
+      if (objectNode.has(ID)) {
+        rule.setId(objectNode.get(ID).asString());
       } else {
         rule.setId(null);
       }
-      if (jsonObject.has(ALLOWORIGIN)) {
-        rule.setAllowedOrigin(jsonObject.getString(ALLOWORIGIN));
+      if (objectNode.has(ALLOWORIGIN)) {
+        rule.setAllowedOrigin(objectNode.get(ALLOWORIGIN).asString());
       } else {
         rule.setAllowedOrigin(null);
       }
       return rule;
     }
 
-    public String toJson() throws JSONException {
-      JSONObject jsonObject = new JSONObject();
+    public String toJson() {
+      ObjectNode objectNode = JacksonUtils.mapper().createObjectNode();
       if (id != null) {
-        jsonObject.put(ID, id);
+        objectNode.put(ID, id);
       }
       if (allowedOrigin != null) {
-        jsonObject.put(ALLOWORIGIN, allowedOrigin);
+        objectNode.put(ALLOWORIGIN, allowedOrigin);
       }
 
-      return jsonObject.toString();
+      return objectNode.toString();
     }
 
     @Override public boolean equals(Object o) {

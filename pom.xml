@@ -36,16 +36,13 @@
       <groupId>jakarta.xml.bind</groupId>
       <artifactId>jakarta.xml.bind-api</artifactId>
       <version>4.0.4</version>
+      <scope>provided</scope>
     </dependency>
     <dependency>
-      <groupId>org.json</groupId>
-      <artifactId>json</artifactId>
-      <version>20251224</version>
-    </dependency>
-    <dependency>
-      <groupId>com.google.code.gson</groupId>
-      <artifactId>gson</artifactId>
-      <version>2.13.2</version>
+      <groupId>tools.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+      <version>3.0.3</version>
+      <scope>provided</scope>
     </dependency>
     <dependency>
       <groupId>org.apache.httpcomponents</groupId>
@@ -57,22 +54,25 @@
       <groupId>org.apache.commons</groupId>
       <artifactId>commons-lang3</artifactId>
       <version>3.20.0</version>
+      <scope>provided</scope>
     </dependency>
     <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
-      <scope>test</scope>
       <version>4.13.1</version>
+      <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>commons-io</groupId>
       <artifactId>commons-io</artifactId>
       <version>2.21.0</version>
+      <scope>provided</scope>
     </dependency>
     <dependency>
       <groupId>commons-codec</groupId>
       <artifactId>commons-codec</artifactId>
       <version>1.20.0</version>
+      <scope>provided</scope>
     </dependency>
   </dependencies>
   <build>
@@ -148,28 +148,15 @@
                 <configuration>
                   <artifactSet>
                     <includes>
-                      <include>org.json:json</include>
                       <include>org.apache.httpcomponents:httpcore</include>
                       <include>org.apache.httpcomponents:httpclient</include>
-                      <include>com.google.code.gson:gson</include>
-                      <include>com.google.code.findbugs:gsr305</include>
-                      <include>com.google.guava:guava</include>
                     </includes>
                   </artifactSet>
                   <createSourcesJar>false</createSourcesJar>
                   <relocations>
                     <relocation>
                       <pattern>org.apache.http</pattern>
-                      <shadedPattern>com.xiaomi.infra.galaxy.fds.shaded.apache.httpcore
-                      </shadedPattern>
-                    </relocation>
-                    <relocation>
-                      <pattern>com.google</pattern>
-                      <shadedPattern>com.xiaomi.infra.galaxy.fds.shaded.google</shadedPattern>
-                    </relocation>
-                    <relocation>
-                      <pattern>org.json</pattern>
-                      <shadedPattern>com.xiaomi.infra.galaxy.fds.shaded.json</shadedPattern>
+                      <shadedPattern>com.xiaomi.infra.galaxy.fds.shaded.apache.httpcore</shadedPattern>
                     </relocation>
                   </relocations>
                 </configuration>

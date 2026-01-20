@@ -1,8 +1,7 @@
 package com.xiaomi.infra.galaxy.fds.model;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import com.google.gson.annotations.Expose;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.xiaomi.infra.galaxy.fds.JacksonUtils;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -15,9 +14,10 @@ import java.util.TreeMap;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.node.ArrayNode;
+import tools.jackson.databind.node.ObjectNode;
 
 /**
  * Copyright 2015, Xiaomi.
@@ -188,33 +188,35 @@ public class LifecycleConfig {
     ruleList = tmpRuleList;
   }
 
-  public static LifecycleConfig fromJson(String json) throws JSONException {
+  public static LifecycleConfig fromJson(String json) {
     return fromJson(json, false);
   }
 
-  public static LifecycleConfig fromJson(String json, boolean adjustParams) throws JSONException {
-    JSONObject jsonObject = new JSONObject(json);
+  public static LifecycleConfig fromJson(String json, boolean adjustParams) {
+    JsonMapper mapper = JacksonUtils.mapper();
+    ObjectNode objectNode = mapper.readValue(json, ObjectNode.class);
     LifecycleConfig lifecycleConfig = new LifecycleConfig();
-    List<Rule> rules = new ArrayList<Rule>();
-    JSONArray rulesArray = jsonObject.getJSONArray(RULES);
+    List<Rule> rules = new ArrayList<>();
+    ArrayNode arrayNode = objectNode.withArray(RULES);
 
-    for (int i = 0; i < rulesArray.length(); i++) {
-      rules.add(Rule.fromJson(rulesArray.getString(i), adjustParams));
+    for (int i = 0; i < arrayNode.size(); i++) {
+      rules.add(Rule.fromJson(arrayNode.get(i).asString(), adjustParams));
     }
     lifecycleConfig.setRuleList(rules);
     return lifecycleConfig;
   }
 
-  public String toJson() throws JSONException {
-    JSONObject jsonObject = new JSONObject();
-    JSONArray jsonArray = new JSONArray();
+  public String toJson() {
+    JsonMapper mapper = JacksonUtils.mapper();
+    ObjectNode objectNode = mapper.createObjectNode();
+    ArrayNode arrayNode = mapper.createArrayNode();
     if (ruleList != null) {
       for (Rule rule : ruleList) {
-        jsonArray.put(new JSONObject(rule.toJson()));
+        arrayNode.add(rule.toJson());
       }
     }
-    jsonObject.put(RULES, jsonArray);
-    return jsonObject.toString();
+    objectNode.set(RULES, arrayNode);
+    return objectNode.toString();
   }
 
   public static class Rule {
@@ -267,33 +269,31 @@ public class LifecycleConfig {
      * @return return null if copy failed
      */
     public static Rule copy(Rule rule) {
-      try {
-        return fromJson(rule.toJson());
-      } catch (JSONException e) {
-        return null;
-      }
+      return fromJson(rule.toJson());
     }
 
-    public static Rule fromJson(String json) throws JSONException {
+    public static Rule fromJson(String json) {
       return fromJson(json, false);
     }
 
-    public static Rule fromJson(String json, boolean adjustParams) throws JSONException {
-      JSONObject jsonObject = new JSONObject(json);
+    public static Rule fromJson(String json, boolean adjustParams) {
+      JsonMapper mapper = JacksonUtils.mapper();
+      ObjectNode objectNode = mapper.readValue(json, ObjectNode.class);
       Rule rule = new Rule();
-      if (jsonObject.has(ID)) {
-        rule.setId(jsonObject.getString(ID));
+      if (objectNode.has(ID)) {
+        rule.setId(objectNode.get(ID).asString());
       } else {
         rule.setId("");
       }
-      rule.setPrefix(jsonObject.getString(PREFIX));
-      rule.setEnabled(jsonObject.getBoolean(ENABLED));
-      List<ActionBase> actions = new ArrayList<ActionBase>();
-      JSONObject actionsObject = jsonObject.getJSONObject(ACTIONS);
-      Iterator<?> keys = actionsObject.keys();
+      rule.setPrefix(objectNode.get(PREFIX).asString());
+      rule.setEnabled(objectNode.get(ENABLED).asBoolean());
+      List<ActionBase> actions = new ArrayList<>();
+      JsonNode jsonNode = objectNode.get(ACTIONS);
+
+      Iterator<?> keys = jsonNode.iterator();
       while (keys.hasNext()) {
         String key = (String) keys.next();
-        String value = actionsObject.getString(key);
+        String value = jsonNode.get(key).asString();
         if (key.equalsIgnoreCase(Expiration.NAME)) {
           actions.add(Expiration.fromJson(value, adjustParams));
         } else if (key.equalsIgnoreCase(NonCurrentVersionExpiration.NAME)) {
@@ -303,32 +303,33 @@ public class LifecycleConfig {
         } else if (key.equalsIgnoreCase(LifecycleStorageClass.NAME)) {
           actions.add(LifecycleStorageClass.fromJson(value, adjustParams));
         } else {
-          throw new JSONException("Unrecognized action: " + key);
+          throw new RuntimeException("Unrecognized action: " + key);
         }
       }
       rule.setActions(actions);
       return rule;
     }
 
-    public String toJson() throws JSONException {
-      JSONObject jsonObject = new JSONObject();
+    public String toJson() {
+      JsonMapper mapper = JacksonUtils.mapper();
+      ObjectNode objectNode = mapper.createObjectNode();
       if (id != null) {
-        jsonObject.put(ID, this.id);
+        objectNode.put(ID, this.id);
       }
       if (prefix != null) {
-        jsonObject.put(PREFIX, this.prefix);
+        objectNode.put(PREFIX, this.prefix);
       }
-      jsonObject.put(ENABLED, this.enabled);
+      objectNode.put(ENABLED, this.enabled);
 
       if (actions != null) {
-        JSONObject actionsObject = new JSONObject();
+        ObjectNode actionObjectNode = mapper.createObjectNode();
         for (ActionBase actionBase : actions) {
-          actionsObject.put(actionBase.name(), new JSONObject(actionBase.toJson()));
+          actionObjectNode.put(actionBase.name(), actionBase.toJson());
         }
-        jsonObject.put(ACTIONS, actionsObject);
+        objectNode.set(ACTIONS, actionObjectNode);
       }
 
-      return jsonObject.toString();
+      return objectNode.toString();
     }
 
     @Override public boolean equals(Object o) {
@@ -379,7 +380,7 @@ public class LifecycleConfig {
   }
 
   public abstract static class ActionBase {
-    protected static final Gson GSON = new GsonBuilder().excludeFieldsWithoutExposeAnnotation().create();
+    protected static final JsonMapper JSON_MAPPER = JacksonUtils.mapper();
 
     protected String name;
 
@@ -395,9 +396,9 @@ public class LifecycleConfig {
   }
 
   public static class Expiration extends ActionBase {
-    private static final String NAME = "expiration";
+    @JsonIgnore private static final String NAME = "expiration";
 
-    @Expose public double days;
+    public double days;
 
     public Expiration() {
       super(NAME);
@@ -407,25 +408,25 @@ public class LifecycleConfig {
       return (long) (days * 24 * 60 * 60 * 1000);
     }
 
-    public static Expiration fromJson(String json) throws JSONException {
+    public static Expiration fromJson(String json) {
       return fromJson(json, false);
     }
 
-    public static Expiration fromJson(String json, boolean adjustParams) throws JSONException {
-      Expiration ret = GSON.fromJson(json, Expiration.class);
+    public static Expiration fromJson(String json, boolean adjustParams) {
+      Expiration ret = JSON_MAPPER.readValue(json, Expiration.class);
       if (adjustParams) {
         ret.days = Math.max(0, ret.days);
         ret.days = Math.min(MAX_EXPIRATION_DAYS, ret.days);
       }
 
       if (ret.days < 0 || ret.days > MAX_EXPIRATION_DAYS) {
-        throw new JSONException("object expiration days must be in range [0," + MAX_EXPIRATION_DAYS + "]");
+        throw new IllegalArgumentException("object expiration days must be in range [0," + MAX_EXPIRATION_DAYS + "]");
       }
       return ret;
     }
 
     @Override public String toJson() {
-      return GSON.toJson(this);
+      return JSON_MAPPER.writeValueAsString(this);
     }
 
     @Override public boolean equals(Object o) {
@@ -446,9 +447,9 @@ public class LifecycleConfig {
   }
 
   public static class NonCurrentVersionExpiration extends ActionBase {
-    private static final String NAME = "nonCurrentVersionExpiration";
+    @JsonIgnore private static final String NAME = "nonCurrentVersionExpiration";
 
-    @Expose public double days;
+    public double days;
 
     public NonCurrentVersionExpiration() {
       super(NAME);
@@ -458,25 +459,25 @@ public class LifecycleConfig {
       return (long) (days * 24 * 60 * 60 * 1000);
     }
 
-    public static NonCurrentVersionExpiration fromJson(String json) throws JSONException {
+    public static NonCurrentVersionExpiration fromJson(String json) {
       return fromJson(json, false);
     }
 
-    public static NonCurrentVersionExpiration fromJson(String json, boolean adjustParams) throws JSONException {
-      NonCurrentVersionExpiration ret = GSON.fromJson(json, NonCurrentVersionExpiration.class);
+    public static NonCurrentVersionExpiration fromJson(String json, boolean adjustParams) {
+      NonCurrentVersionExpiration ret = JSON_MAPPER.readValue(json, NonCurrentVersionExpiration.class);
       if (adjustParams) {
         ret.days = Math.max(0, ret.days);
         ret.days = Math.min(MAX_NONCURRENT_EXPIRATION_DAYS, ret.days);
       }
 
       if (ret.days < 0 || ret.days > MAX_NONCURRENT_EXPIRATION_DAYS) {
-        throw new JSONException("non-current object expiration days must be in range [0," + MAX_NONCURRENT_EXPIRATION_DAYS + "]");
+        throw new IllegalArgumentException("non-current object expiration days must be in range [0," + MAX_NONCURRENT_EXPIRATION_DAYS + "]");
       }
       return ret;
     }
 
     @Override public String toJson() {
-      return GSON.toJson(this);
+      return JSON_MAPPER.writeValueAsString(this);
     }
 
     @Override public boolean equals(Object o) {
@@ -497,9 +498,9 @@ public class LifecycleConfig {
   }
 
   public static class AbortIncompleteMultipartUpload extends ActionBase {
-    private static final String NAME = "abortIncompleteMultipartUpload";
+    @JsonIgnore private static final String NAME = "abortIncompleteMultipartUpload";
 
-    @Expose public double days;
+    public double days;
 
     public AbortIncompleteMultipartUpload() {
       super(NAME);
@@ -509,12 +510,12 @@ public class LifecycleConfig {
       return (long) (days * 24 * 60 * 60 * 1000);
     }
 
-    public static AbortIncompleteMultipartUpload fromJson(String json) throws JSONException {
+    public static AbortIncompleteMultipartUpload fromJson(String json) {
       return fromJson(json, false);
     }
 
-    public static AbortIncompleteMultipartUpload fromJson(String json, boolean adjustParams) throws JSONException {
-      AbortIncompleteMultipartUpload ret = GSON.fromJson(json, AbortIncompleteMultipartUpload.class);
+    public static AbortIncompleteMultipartUpload fromJson(String json, boolean adjustParams) {
+      AbortIncompleteMultipartUpload ret = JSON_MAPPER.readValue(json, AbortIncompleteMultipartUpload.class);
 
       if (adjustParams) {
         ret.days = Math.max(0, ret.days);
@@ -522,13 +523,13 @@ public class LifecycleConfig {
       }
 
       if (ret.days < 0 || ret.days > MAX_MULTIPART_EXPIRATION_DAYS) {
-        throw new JSONException("non-current object expiration days must be in range [0," + MAX_MULTIPART_EXPIRATION_DAYS + "]");
+        throw new IllegalArgumentException("non-current object expiration days must be in range [0," + MAX_MULTIPART_EXPIRATION_DAYS + "]");
       }
       return ret;
     }
 
     @Override public String toJson() {
-      return GSON.toJson(this);
+      return JSON_MAPPER.writeValueAsString(this);
     }
 
     @Override public boolean equals(Object o) {
@@ -549,13 +550,13 @@ public class LifecycleConfig {
   }
 
   public static class LifecycleStorageClass extends ActionBase {
-    public static final String NAME = "lifeCycleStorageClass";
+    @JsonIgnore public static final String NAME = "lifeCycleStorageClass";
 
-    @Expose public double days;
+    public double days;
 
-    @Expose public String storageClass;
+    public String storageClass;
 
-    @Expose public String targetBucket;
+    public String targetBucket;
 
     public LifecycleStorageClass() {
       super(NAME);
@@ -573,12 +574,12 @@ public class LifecycleConfig {
       return StringUtils.isBlank(storageClass) ? null : StorageClass.fromValue(storageClass);
     }
 
-    public static LifecycleStorageClass fromJson(String json) throws JSONException {
+    public static LifecycleStorageClass fromJson(String json) {
       return fromJson(json, false);
     }
 
-    public static LifecycleStorageClass fromJson(String json, boolean adjustParams) throws JSONException {
-      LifecycleStorageClass ret = GSON.fromJson(json, LifecycleStorageClass.class);
+    public static LifecycleStorageClass fromJson(String json, boolean adjustParams) {
+      LifecycleStorageClass ret = JSON_MAPPER.readValue(json, LifecycleStorageClass.class);
 
       if (adjustParams) {
         ret.days = Math.max(0, ret.days);
@@ -586,13 +587,13 @@ public class LifecycleConfig {
       }
 
       if (ret.days < 0 || ret.days > MAX_STORAGECLASS_EXPIRATION_DAYS) {
-        throw new JSONException("StorageClass expiration days must be in range [0," + MAX_STORAGECLASS_EXPIRATION_DAYS + "]");
+        throw new IllegalArgumentException("StorageClass expiration days must be in range [0," + MAX_STORAGECLASS_EXPIRATION_DAYS + "]");
       }
       return ret;
     }
 
     @Override public String toJson() {
-      return GSON.toJson(this);
+      return JSON_MAPPER.writeValueAsString(this);
     }
 
     @Override public boolean equals(Object o) {

@@ -1,12 +1,8 @@
 package com.xiaomi.infra.galaxy.fds.client;
 
-import com.google.gson.Gson;
-import com.google.gson.JsonDeserializationContext;
-import com.google.gson.JsonDeserializer;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonParseException;
 import com.xiaomi.infra.galaxy.fds.Action;
 import com.xiaomi.infra.galaxy.fds.Common;
+import com.xiaomi.infra.galaxy.fds.JacksonUtils;
 import com.xiaomi.infra.galaxy.fds.SubResource;
 import com.xiaomi.infra.galaxy.fds.auth.signature.SignAlgorithm;
 import com.xiaomi.infra.galaxy.fds.auth.signature.Signer;
@@ -64,7 +60,6 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
-import java.lang.reflect.Type;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
@@ -96,7 +91,7 @@ import org.apache.http.entity.ContentType;
 import org.apache.http.entity.FileEntity;
 import org.apache.http.entity.InputStreamEntity;
 import org.apache.http.entity.StringEntity;
-import org.json.JSONException;
+import tools.jackson.databind.json.JsonMapper;
 
 public class GalaxyFDSClient implements GalaxyFDS {
 
@@ -1488,22 +1483,8 @@ public class GalaxyFDSClient implements GalaxyFDS {
     HashMap<String, String> params = new HashMap<String, String>();
     params.put("lifecycle", "");
     HttpUriRequest httpRequest = fdsHttpClient.prepareRequestMethod(uri, HttpMethod.GET, null, null, params, null, null);
-
     HttpResponse response = fdsHttpClient.executeHttpRequest(httpRequest, Action.GetLifecycleConfig);
-
-    LifecycleConfig lifecycleConfig = fdsHttpClient.processResponse(response, LifecycleConfig.class, new JsonDeserializer<LifecycleConfig>() {
-      @Override public LifecycleConfig deserialize(JsonElement json, Type type, JsonDeserializationContext jsonDeserializationContext)
-        throws JsonParseException {
-        try {
-          return LifecycleConfig.fromJson(json.toString());
-        } catch (JSONException e) {
-          String errorMsg = "Failed to get lifecycle config for bucket " + bucketName;
-          LOG.error(errorMsg);
-          throw new JsonParseException(errorMsg, e);
-        }
-      }
-    }, "Get bucket [" + bucketName + "] lifecycle " + "config");
-
+    LifecycleConfig lifecycleConfig = fdsHttpClient.processResponse(response, LifecycleConfig.class, "Get bucket [" + bucketName + "] lifecycle " + "config");
     return lifecycleConfig;
   }
 
@@ -1512,12 +1493,7 @@ public class GalaxyFDSClient implements GalaxyFDS {
     URI uri = formatUri(fdsConfig.getBaseUri(), bucketName, (SubResource[]) null);
     HashMap<String, String> params = new HashMap<String, String>();
     params.put("lifecycle", "");
-    StringEntity requestEntity;
-    try {
-      requestEntity = new StringEntity(lifecycleConfig.toJson(), contentType);
-    } catch (JSONException e) {
-      throw new GalaxyFDSClientException(e);
-    }
+    StringEntity requestEntity = new StringEntity(lifecycleConfig.toJson(), contentType);
     HttpUriRequest httpRequest = fdsHttpClient.prepareRequestMethod(uri, HttpMethod.PUT, contentType, null, params, null, requestEntity);
 
     HttpResponse response = fdsHttpClient.executeHttpRequest(httpRequest, Action.UpdateLifecycleConfig);
@@ -1592,8 +1568,8 @@ public class GalaxyFDSClient implements GalaxyFDS {
     URI uri = formatUri(fdsConfig.getBaseUri(), bucketName, (SubResource[]) null);
     HashMap<String, String> params = new HashMap<String, String>();
     params.put("antiStealingLink", "");
-    Gson gson = new Gson();
-    StringEntity requestEntity = new StringEntity(gson.toJson(antiStealingLinkConfig), contentType);
+    JsonMapper mapper = JacksonUtils.mapper();
+    StringEntity requestEntity = new StringEntity(mapper.writeValueAsString(antiStealingLinkConfig), contentType);
     HttpUriRequest httpRequest = fdsHttpClient.prepareRequestMethod(uri, HttpMethod.PUT, contentType, null, params, null, requestEntity);
     HttpResponse response = fdsHttpClient.executeHttpRequest(httpRequest, Action.UpdateAntiStealingLinkConfig);
     fdsHttpClient.processResponse(response, null, "Update anti-stealing-link config bucket [" + bucketName + "]");
@@ -1639,10 +1615,10 @@ public class GalaxyFDSClient implements GalaxyFDS {
   }
 
   private StringEntity getJsonStringEntity(Object entityContent, ContentType mediaType) {
-    Gson gson = new Gson();
+    JsonMapper mapper = JacksonUtils.mapper();
     String jsonStr = "";
     if (entityContent != null) {
-      jsonStr = gson.toJson(entityContent);
+      jsonStr = mapper.writeValueAsString(entityContent);
     }
     StringEntity entity = new StringEntity(jsonStr, mediaType);
     return entity;
@@ -1892,15 +1868,7 @@ public class GalaxyFDSClient implements GalaxyFDS {
 
     HttpResponse response = fdsHttpClient.executeHttpRequest(httpUriRequest, Action.GetBucketCORSConfiguration);
 
-    CORSConfiguration configuration = fdsHttpClient.processResponse(response, CORSConfiguration.class, (json, typeOfT, context) -> {
-      try {
-        return CORSConfiguration.fromJson(json.toString());
-      } catch (JSONException e) {
-        String errorMsg = "Failed to get cors configuration for bucket " + bucketName;
-        LOG.error(errorMsg);
-        throw new JsonParseException(errorMsg, e);
-      }
-    }, "get bucket [" + bucketName + "] cors  configuration");
+    CORSConfiguration configuration = fdsHttpClient.processResponse(response, CORSConfiguration.class, "get bucket [" + bucketName + "] cors  configuration");
 
     return configuration;
   }
@@ -1917,17 +1885,7 @@ public class GalaxyFDSClient implements GalaxyFDS {
 
     HttpResponse response = fdsHttpClient.executeHttpRequest(httpUriRequest, Action.GetBucketCORSRule);
 
-    CORSRule corsRule = fdsHttpClient.processResponse(response, CORSRule.class, new JsonDeserializer<CORSRule>() {
-      @Override public CORSRule deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext context) throws JsonParseException {
-        try {
-          return CORSRule.fromJson(json.toString());
-        } catch (JSONException e) {
-          String errorMsg = "Failed to get CORSRule for ruleId " + ruleId;
-          LOG.error(errorMsg);
-          throw new JsonParseException(errorMsg, e);
-        }
-      }
-    }, "get bucket [" + bucketName + "] CORSRule");
+    CORSRule corsRule = fdsHttpClient.processResponse(response, CORSRule.class, "get bucket [" + bucketName + "] CORSRule");
     return corsRule;
   }
 
@@ -1936,12 +1894,7 @@ public class GalaxyFDSClient implements GalaxyFDS {
     URI uri = formatUri(fdsConfig.getBaseUri(), bucketName, (SubResource[]) null);
     HashMap<String, String> params = new HashMap<String, String>();
     params.put("cors", "");
-    StringEntity requestEntity;
-    try {
-      requestEntity = new StringEntity(corsConfiguration.toJson(), contentType);
-    } catch (JSONException e) {
-      throw new GalaxyFDSClientException(e);
-    }
+    StringEntity requestEntity = new StringEntity(corsConfiguration.toJson(), contentType);
 
     HttpUriRequest httpUriRequest = fdsHttpClient.prepareRequestMethod(uri, HttpMethod.PUT, contentType, null, params, null, requestEntity);
 
@@ -1955,12 +1908,7 @@ public class GalaxyFDSClient implements GalaxyFDS {
     URI uri = formatUri(fdsConfig.getBaseUri(), bucketName, (SubResource[]) null);
     HashMap<String, String> params = new HashMap<String, String>();
     params.put("cors", "rule");
-    StringEntity requestEntity;
-    try {
-      requestEntity = new StringEntity(rule.toJson(), contentType);
-    } catch (JSONException e) {
-      throw new GalaxyFDSClientException(e);
-    }
+    StringEntity requestEntity = new StringEntity(rule.toJson(), contentType);
     HttpUriRequest httpUriRequest = fdsHttpClient.prepareRequestMethod(uri, HttpMethod.PUT, contentType, null, params, null, requestEntity);
 
     HttpResponse response = fdsHttpClient.executeHttpRequest(httpUriRequest, Action.AddOrUpdateBucketCORSRule);
@@ -2019,12 +1967,7 @@ public class GalaxyFDSClient implements GalaxyFDS {
     URI uri = formatUri(fdsConfig.getBaseUri(), bucketName, (SubResource[]) null);
     HashMap<String, String> params = new HashMap<String, String>();
     params.put("website", "");
-    StringEntity requestEntity;
-    try {
-      requestEntity = new StringEntity(websiteConfig.toJson(), contentType);
-    } catch (JSONException e) {
-      throw new GalaxyFDSClientException(e);
-    }
+    StringEntity requestEntity = new StringEntity(websiteConfig.toJson(), contentType);
     HttpUriRequest httpUriRequest = fdsHttpClient.prepareRequestMethod(uri, HttpMethod.PUT, contentType, null, params, null, requestEntity);
 
     HttpResponse response = fdsHttpClient.executeHttpRequest(httpUriRequest, Action.PutWebsiteConfig);
@@ -2051,17 +1994,7 @@ public class GalaxyFDSClient implements GalaxyFDS {
 
     HttpResponse response = fdsHttpClient.executeHttpRequest(httpUriRequest, Action.GetWebsiteConfig);
 
-    WebsiteConfig websiteConfig = fdsHttpClient.processResponse(response, WebsiteConfig.class, new JsonDeserializer<WebsiteConfig>() {
-      @Override public WebsiteConfig deserialize(JsonElement json, Type type, JsonDeserializationContext jsonDeserializationContext) throws JsonParseException {
-        try {
-          return WebsiteConfig.fromJson(json.toString());
-        } catch (JSONException e) {
-          String errorMsg = "Failed to get website config for bucket " + bucketName;
-          LOG.error(errorMsg);
-          throw new JsonParseException(errorMsg, e);
-        }
-      }
-    }, "Get bucket [" + bucketName + "] website config");
+    WebsiteConfig websiteConfig = fdsHttpClient.processResponse(response, WebsiteConfig.class, "Get bucket [" + bucketName + "] website config");
     return websiteConfig;
   }
 }
